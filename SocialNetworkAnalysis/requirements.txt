@@ -1,5 +1,0 @@
-PyQt5
-networkx
-matplotlib
-pandas
-numpy
