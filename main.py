@@ -1,31 +1,13 @@
-import os
-from src.model.graph import Graph
+import sys
+from PyQt5.QtWidgets import QApplication
+from src.ui.main_window import MainWindow # Commented out until created
 
 def main():
-    # 1. Graf Yöneticisini Başlat
-    graph = Graph()
-    
-    # 2. Dosya Yolunu Bul (data klasöründe olduğunu varsayıyoruz)
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    csv_path = os.path.join(current_dir, 'data', 'social_network.csv')
-    
-    # 3. Yüklemeyi Dene
-    basarili = graph.load_from_csv(csv_path)
-    
-    if basarili:
-        print("\n--- TEST RAPORU ---")
-        # Düğümleri listele
-        print("Düğümler:")
-        for node_id, node in graph.nodes.items():
-            print(f"  {node}")
-            
-        # Kenarları listele (Ağırlıkları kontrol et)
-        print("\nKenarlar (Ve Otomatik Hesaplanan Ağırlıklar):")
-        for edge in graph.edges:
-            print(f"  {edge}")
-            
-    else:
-        print("CSV dosyası yüklenemedi! Dosya yolunu ve ismini kontrol et.")
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    print("Application starting...")
+    sys.exit(app.exec_())
 
 if __name__ == "__main__":
     main()
