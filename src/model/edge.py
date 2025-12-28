@@ -3,8 +3,8 @@ import math
 class Edge:
     def __init__(self, source_node, target_node):
         """
-        source_node: Başlangıç Düğümü (Node Nesnesi)
-        target_node: Bitiş Düğümü (Node Nesnesi)
+        source_node: baslangic dugumu (Node Nesnesi)
+        target_node: bitis dugumu (Node Nesnesi)
         """
         self.source = source_node
         self.target = target_node
@@ -14,11 +14,10 @@ class Edge:
 
     def calculate_weight(self):
         """
-        Proje Dökümanı Madde 4.3'teki formülü uygular[cite: 59].
         Formül: 1 + sqrt((AktiflikFarki)^2 + (EtkilesimFarki)^2 + (BaglantiFarki)^2)
         """
         # 1. Node nesnelerinin içindeki özellikleri kullanarak farkları bul
-        # Senin Node sınıfındaki isimlerle birebir aynı olmalı:
+        # Node sınıfındaki isimlerle birebir aynı olmalı:
         delta_aktiflik = self.source.aktiflik - self.target.aktiflik
         delta_etkilesim = self.source.etkilesim - self.target.etkilesim
         delta_baglanti = self.source.baglanti_sayisi - self.target.baglanti_sayisi
@@ -28,18 +27,18 @@ class Edge:
                           (delta_etkilesim ** 2) + \
                           (delta_baglanti ** 2)
 
-        # 3. Karekök al ve 1 ekle [cite: 59]
+        # 3. Karekök al ve 1 ekle
         weight = 1 + math.sqrt(kareler_toplami)
         
-        # Sonucu 2 ondalık basamağa yuvarla (Okunabilirlik için)
+        # Sonucu 2 ondalık basamağa yuvarla (Okunabilirlik icin)
         return round(weight, 2)
 
     def __repr__(self):
-        """Debug çıktısı: Hangi düğümler bağlı ve ağırlık ne?"""
+        """Debug ciktisi: Hangi dugumler bagli ve agirlik ne?"""
         return f"Edge({self.source.id} <-> {self.target.id}, W={self.weight})"
 
     def to_dict(self):
-        """Dosyaya kaydederken kullanılır."""
+        """Dosyaya kaydetmek icin kullanilir."""
         return {
             "source": self.source.id,
             "target": self.target.id,
