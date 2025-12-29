@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import csv
+import os
 from src.model.node import Node
 
 #file manager arayüzü
@@ -51,7 +52,7 @@ class CSVFileManager(IFileManager):
                         
                         # düğümü oluştur ve ekle
                         new_node = Node(node_id, properties=props)
-                        self.add_node(new_node)
+                        graph.add_node(new_node)
                         
                         # ham veriyi 2. tur için sakla
                         raw_data.append(row)
@@ -73,11 +74,11 @@ class CSVFileManager(IFileManager):
                             target_id = int(k_id.strip())
                             # self-loop engelleme
                             if source_id != target_id:
-                                self.add_edge(source_id, target_id)
+                                graph.add_edge(source_id, target_id)
                         except ValueError:
                             pass
 
-            print(f"Yükleme Başarılı! Toplam Node: {len(self.nodes)}, Toplam Edge: {len(self.edges)}")
+            print(f"Yükleme Başarılı! Toplam Node: {len(graph.nodes)}, Toplam Edge: {len(graph.edges)}")
             return True
 
         except Exception as e:
@@ -85,6 +86,35 @@ class CSVFileManager(IFileManager):
             return False
 
     def save(self, file_path, graph):
-        # kaydetme mantığı
-        pass
+        """
+        Graph nesnesini CSV formatında kaydeder.
+        Format: DugumId, Ozellik_I (Aktiflik), Ozellik_II (Etkileşim), Ozellik_III (Bagl. Sayisi), Komsular
+        """
+        try:
+            with open(file_path, mode='w', newline='', encoding='utf-8') as f:
+                fieldnames = ['DugumId', 'Ozellik_I (Aktiflik)', 'Ozellik_II (Etkileşim)', 'Ozellik_III (Bagl. Sayisi)', 'Komsular']
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                
+                writer.writeheader()
+                
+                for node_id, node in graph.nodes.items():
+                    # Komşuları bul (Graph.adjacency_list veya node.neighbors)
+                    # Graph.get_neighbors metodu güvenlidir
+                    neighbors = graph.get_neighbors(node_id)
+                    neighbors_str = ",".join(map(str, neighbors))
+                    
+                    writer.writerow({
+                        'DugumId': node_id,
+                        'Ozellik_I (Aktiflik)': node.aktiflik,
+                        'Ozellik_II (Etkileşim)': node.etkilesim,
+                        'Ozellik_III (Bagl. Sayisi)': node.baglanti_sayisi,
+                        'Komsular': neighbors_str
+                    })
+            
+            print(f"Kaydetme başarılı: {file_path}")
+            return True
+            
+        except Exception as e:
+            print(f"Kaydetme Hatası: {e}")
+            return False
 #yeni dosya yöneticisi eklenmek istenirse buraya eklenebilir

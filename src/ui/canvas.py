@@ -7,6 +7,8 @@ from .dialogs import EdgeDialog, NodeDialog
 
 class GraphCanvas(QGraphicsView):
     itemMoved = pyqtSignal(object) # Sitem taşındığında tetiklenecek sinyal
+    nodeAdded = pyqtSignal(str)    # Yeni düğüm eklendiğinde (ID gönderir)
+    nodeDeleted = pyqtSignal(str)  # Düğüm silindiğinde (ID gönderir)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -37,6 +39,7 @@ class GraphCanvas(QGraphicsView):
         if self.mode == "ADD_NODE":
             node = NodeItem(str(self.next_node_id), pos.x(), pos.y())
             self.scene.addItem(node)
+            self.nodeAdded.emit(str(self.next_node_id))
             self.next_node_id += 1
             
         elif self.mode == "ADD_EDGE":
@@ -91,4 +94,5 @@ class GraphCanvas(QGraphicsView):
             if isinstance(item, NodeItem):
                 for edge in list(item.edges): 
                     self.scene.removeItem(edge)
-            self.scene.removeItem(item)
+                self.scene.removeItem(item)
+                self.nodeDeleted.emit(item.node_id)

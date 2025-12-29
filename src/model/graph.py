@@ -52,3 +52,7 @@ class Graph:
         self.nodes.clear()
         self.edges.clear()
         self.adjacency_list.clear()
+
+    def get_neighbors(self, node_id):
+        """Algoritmalar için komşu listesini döndürür."""
+        return self.adjacency_list.get(node_id, [])
