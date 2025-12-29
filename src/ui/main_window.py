@@ -1,12 +1,13 @@
 # GÖREV: Üye A - Arayüz Kodları
-from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QDockWidget, QTabWidget, QPushButton, QComboBox, QLabel, QFormLayout, QHBoxLayout, QFileDialog, QMessageBox, QAction
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QDockWidget, QTabWidget, QPushButton, QComboBox, QLabel, QFormLayout, QHBoxLayout, QFileDialog, QMessageBox, QAction, QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox
+from PyQt5.QtCore import Qt, QSize, QTimer
 from .canvas import GraphCanvas
 from .properties_panel import PropertiesPanel
 from src.model.graph import Graph
 from src.model.node import Node
 from src.algorithms.bfs_dfs import BFSAlgorithm, DFSAlgorithm
 from src.algorithms.shortest_path import DijkstraAlgorithm, AStarAlgorithm
+from src.algorithms.analysis import WelshPowellAlgorithm, ConnectedComponentsAlgorithm, DegreeCentralityAlgorithm
 from src.model.file_manager import CSVFileManager
 
 class MainWindow(QMainWindow):
@@ -39,7 +40,16 @@ class MainWindow(QMainWindow):
         
         # Status Bar
         self.status_bar = self.statusBar()
+        # Status Bar
+        self.status_bar = self.statusBar()
         self.status_bar.showMessage("Ready")
+
+        # Animasyon için Timer
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.animate_step)
+        self.animation_queue = []
+        self.animation_visited = set()
+        self.animation_path_edges = [] # [(u, v), ...]
 
     def create_dock_panels(self):
         # --- SAĞ PANEL (Özellikler) ---
@@ -102,7 +112,8 @@ class MainWindow(QMainWindow):
             "Dijkstra Shortest Path", 
             "A* Shortest Path",
             "Clustering",
-            "Welsh-Powell Coloring"
+            "Welsh-Powell Coloring",
+            "Degree Centrality"
         ])
         layout.addWidget(self.combo_algo)
         
@@ -114,8 +125,14 @@ class MainWindow(QMainWindow):
         
         form_layout.addRow("Start Node:", self.combo_start_node)
         form_layout.addRow("End Node:", self.combo_end_node)
+        form_layout.addRow("End Node:", self.combo_end_node)
         layout.addLayout(form_layout)
         
+        # Animasyon Seçeneği
+        self.chk_animate = QCheckBox("Animate Execution")
+        self.chk_animate.setChecked(True)
+        layout.addWidget(self.chk_animate)
+
         # Çalıştır Butonu
         self.btn_run = QPushButton("Run Algorithm")
         self.btn_run.setStyleSheet("background-color: #ccffcc; font-weight: bold;")
@@ -226,16 +243,63 @@ class MainWindow(QMainWindow):
             algorithm = DijkstraAlgorithm()
         elif "A*" in algo_name:
             algorithm = AStarAlgorithm()
+        elif "Coloring" in algo_name:
+            algorithm = WelshPowellAlgorithm()
+        elif "Clustering" in algo_name:
+            algorithm = ConnectedComponentsAlgorithm()
+        elif "Degree Centrality" in algo_name:
+            algorithm = DegreeCentralityAlgorithm()
         else:
             self.lbl_result.setText(f"Not implemented: {algo_name}")
             return
             
         # 3. Çalıştır
         try:
-            print(f"Running {algo_name} from {start_id} to {end_id}")
+            print(f"Running {algo_name}")
+            
+            # Algoritma türüne göre farklı işlem yap
+            if isinstance(algorithm, WelshPowellAlgorithm):
+                # {node_id: color_code} döner
+                colors = algorithm.execute(graph)
+                self.apply_coloring(colors)
+                self.lbl_result.setText(f"Coloring applied. Total colors: {len(set(colors.values()))}")
+                return # Renklendirme bitti, path boyama yapma
+                
+            elif isinstance(algorithm, ConnectedComponentsAlgorithm):
+                # [[id, id], [id]] döner
+                components = algorithm.execute(graph)
+                
+                # Her kümeye farklı renk ata
+                colors = [
+                    "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#00FFFF", "#FF00FF", 
+                    "#FFA500", "#800080", "#008080", "#FFC0CB", "#800000", "#008000"
+                ]
+                
+                node_colors_map = {}
+                for i, component in enumerate(components):
+                    color = colors[i % len(colors)]
+                    for node_id in component:
+                        node_colors_map[node_id] = color
+                        
+                self.apply_coloring(node_colors_map)
+                self.lbl_result.setText(f"Components found: {len(components)}. Coloring applied.")
+                return
+            
+            elif isinstance(algorithm, DegreeCentralityAlgorithm):
+                # [(node_id, score), ...] döner
+                scores = algorithm.execute(graph)
+                self.show_centrality_results(scores)
+                self.lbl_result.setText("Centrality scores calculated.")
+                return 
+
+            # Diğer Path algoritmaları için
+            if not start_id: # Sadece path algoritmaları için gerekli
+                self.lbl_result.setText("Error: Start Node required for path algorithms.")
+                return
+
             result_path = algorithm.execute(graph, start_id, end_id)
             
-            # 4. Sonucu Göster
+            # 4. Sonucu Göster (Path)
             if result_path:
                 result_str = " -> ".join(map(str, result_path))
                 self.lbl_result.setText(f"Path: {result_str}")
@@ -279,6 +343,202 @@ class MainWindow(QMainWindow):
                         pen.setColor(Qt.red)
                         pen.setWidth(4)
                         item.setPen(pen)
+
+    def apply_coloring(self, node_colors):
+        """Düğümleri verilen renklere göre boyar (Dict: {id: #HexCode})."""
+        from .visuals import NodeItem
+        from PyQt5.QtGui import QColor, QBrush
+        
+        # Önce reset
+        for item in self.canvas.scene.items():
+            if isinstance(item, NodeItem):
+                item.setBrush(QBrush(QColor("#3498db"))) # Reset to default blue
+        
+        # Sonra boya
+        for item in self.canvas.scene.items():
+            if isinstance(item, NodeItem):
+                if item.node_id in node_colors:
+                    color_code = node_colors[item.node_id]
+                    item.setBrush(QBrush(QColor(color_code)))
+
+    def show_centrality_results(self, scores):
+        """Merkezilik skorlarını bir tabloda gösterir."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Degree Centrality Results")
+        dialog.resize(400, 300)
+        
+        layout = QVBoxLayout(dialog)
+        
+        table = QTableWidget()
+        table.setColumnCount(2)
+        table.setHorizontalHeaderLabels(["Node ID", "Degree Score"])
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        
+        # En yüksek 5 tanesini göster
+        top_scores = scores[:5]
+        table.setRowCount(len(top_scores))
+        
+        for i, (node_id, score) in enumerate(top_scores):
+            table.setItem(i, 0, QTableWidgetItem(str(node_id)))
+            table.setItem(i, 1, QTableWidgetItem(str(score)))
+            
+        layout.addWidget(table)
+        
+        btn_close = QPushButton("Close")
+        btn_close.clicked.connect(dialog.accept)
+        layout.addWidget(btn_close)
+        
+        dialog.exec_()
+
+        btn_close.clicked.connect(dialog.accept)
+        layout.addWidget(btn_close)
+        
+        dialog.exec_()
+
+    def start_animation(self, node_list, is_path=False):
+        """Animasyonu başlatır."""
+        self.animation_queue = node_list
+        self.animation_is_path = is_path
+        self.animation_visited.clear()
+        
+        # Reset canvas
+        from .visuals import NodeItem, EdgeItem
+        from PyQt5.QtGui import QColor, QBrush
+        
+        for item in self.canvas.scene.items():
+            if isinstance(item, NodeItem):
+                item.setBrush(QBrush(QColor("#3498db"))) # Mavi
+            elif isinstance(item, EdgeItem):
+                item.setPen(Qt.black)
+
+        self.timer.start(300) # 300ms gecikme
+        self.btn_run.setEnabled(False) 
+        self.status_bar.showMessage("Animating...")
+
+    def animate_step(self):
+        """Timer her tetiklendiğinde çalışır."""
+        from .visuals import NodeItem, EdgeItem
+        from PyQt5.QtGui import QColor, QBrush
+        
+        if not self.animation_queue:
+            self.timer.stop()
+            self.btn_run.setEnabled(True)
+            self.status_bar.showMessage("Animation Completed.")
+            
+            # Eğer path animasyonu ise, kenarları da son aşamada kırmızı yapalım tam görünsün
+            if self.animation_is_path:
+                # (highlight_path fonksiyonunu çağırabiliriz veya burada manuel yaparız)
+                pass
+            return
+
+        current_id = self.animation_queue.pop(0)
+        self.animation_visited.add(current_id)
+        
+        # İlgili düğümü bul ve boya
+        for item in self.canvas.scene.items():
+            if isinstance(item, NodeItem) and item.node_id == current_id:
+                if self.animation_is_path:
+                    item.setBrush(QBrush(QColor("#e74c3c"))) # Kırmızı (Path)
+                else:
+                    item.setBrush(QBrush(QColor("#f39c12"))) # Turuncu (Ziyaret Edilen)
+                break
+        
+        # Eğer path ise bir önceki ile bağlantıyı da boya
+        # (Bu basit animasyon, sadece node'ları yakar sönük yapar)
+
+    def run_algorithm(self):
+        """Seçili algoritmayı çalıştırır."""
+        from .visuals import NodeItem, EdgeItem
+        
+        algo_name = self.combo_algo.currentText()
+        start_id = self.combo_start_node.currentText()
+        end_id = self.combo_end_node.currentText()
+        
+        # ... (Validasyonlar aynı kalacak, sadece execute sonrası değişecek)
+        
+        if not start_id and "Coloring" not in algo_name and "Clustering" not in algo_name and "Centrality" not in algo_name:
+            self.lbl_result.setText("Error: Please select a start node.")
+            return
+
+        graph = Graph()
+        # Graph oluşturma kısmı aynı...
+        for item in self.canvas.scene.items():
+            if isinstance(item, NodeItem):
+                model_node = Node(item.node_id, x=item.x(), y=item.y())
+                graph.add_node(model_node)
+        for item in self.canvas.scene.items():
+            if isinstance(item, EdgeItem):
+                graph.add_edge(item.source.node_id, item.target.node_id)
+
+        # Algoritma Nesnesi
+        algorithm = None
+        if "BFS" in algo_name: algorithm = BFSAlgorithm()
+        elif "DFS" in algo_name: algorithm = DFSAlgorithm()
+        elif "Dijkstra" in algo_name: algorithm = DijkstraAlgorithm()
+        elif "A*" in algo_name: algorithm = AStarAlgorithm()
+        elif "Coloring" in algo_name: algorithm = WelshPowellAlgorithm()
+        elif "Clustering" in algo_name: algorithm = ConnectedComponentsAlgorithm()
+        elif "Degree Centrality" in algo_name: algorithm = DegreeCentralityAlgorithm()
+        else:
+            self.lbl_result.setText(f"Not implemented: {algo_name}")
+            return
+            
+        try:
+            print(f"Running {algo_name}")
+            
+            # 1. Renklendirme ve Analizler (Animasyonsuz veya farklı)
+            if isinstance(algorithm, WelshPowellAlgorithm):
+                colors = algorithm.execute(graph)
+                self.apply_coloring(colors)
+                self.lbl_result.setText(f"Coloring applied. Total colors: {len(set(colors.values()))}")
+                return
+                
+            elif isinstance(algorithm, ConnectedComponentsAlgorithm):
+                components = algorithm.execute(graph)
+                # ... Renklendirme kodu ...
+                colors = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#00FFFF", "#FF00FF", "#FFA500", "#800080", "#008080", "#FFC0CB", "#800000", "#008000"]
+                node_colors_map = {}
+                for i, component in enumerate(components):
+                    color = colors[i % len(colors)]
+                    for node_id in component:
+                        node_colors_map[node_id] = color
+                self.apply_coloring(node_colors_map)
+                self.lbl_result.setText(f"Components found: {len(components)}. Coloring applied.")
+                return
+            
+            elif isinstance(algorithm, DegreeCentralityAlgorithm):
+                scores = algorithm.execute(graph)
+                self.show_centrality_results(scores)
+                return 
+
+            # 2. Gezinti ve Yol Algoritmaları (Animasyonlu)
+            result_list = algorithm.execute(graph, start_id, end_id)
+            
+            if not result_list:
+                self.lbl_result.setText("No path/result found.")
+                return
+
+            result_str = " -> ".join(map(str, result_list))
+            self.lbl_result.setText(f"Result: {result_str}")
+            
+            # Animasyon isteniyor mu?
+            if self.chk_animate.isChecked():
+                # Path mi yoksa visited list mi?
+                # BFS/DFS visited döner (Bütün gezilenler)
+                # Dijkstra/A* path döner (Sadece en kısa yol)
+                is_path = "Shortest" in algo_name
+                self.start_animation(result_list, is_path=is_path)
+            else:
+                self.highlight_path(result_list)
+                
+        except Exception as e:
+            self.lbl_result.setText(f"Error: {str(e)}")
+            print(e)
+            import traceback
+            traceback.print_exc()
+
+            import traceback
+            traceback.print_exc()
 
     def create_menubar(self):
         menubar = self.menuBar()
