@@ -29,7 +29,7 @@ class GraphCanvas(QGraphicsView):
         self.mode = mode
         self.temp_source_node = None # Mod değişince seçimi sıfırla
         if mode == "SELECT":
-            self.setDragMode(QGraphicsView.ScrollHandDrag)
+            self.setDragMode(QGraphicsView.RubberBandDrag)
         else:
             self.setDragMode(QGraphicsView.NoDrag)
             
@@ -89,10 +89,34 @@ class GraphCanvas(QGraphicsView):
             super().keyPressEvent(event)
 
     def delete_selected_items(self):
-        for item in self.scene.selectedItems():
-            # Eğer düğüm siliniyorsa, bağlı kenarları da silmeli
+        # Silinecekleri topla
+        items_to_delete = self.scene.selectedItems()
+        
+        for item in items_to_delete:
+            # Zaten silinmişse geç (Scene None ise)
+            if item.scene() is None:
+                continue
+
             if isinstance(item, NodeItem):
+                # Node siliniyorsa bağlı edge'leri de güvenli sil
                 for edge in list(item.edges): 
-                    self.scene.removeItem(edge)
-                self.scene.removeItem(item)
-                self.nodeDeleted.emit(item.node_id)
+                    if edge.scene() is not None:
+                        # Diğer uçtaki düğümden de sil
+                        if edge.source != item: edge.source.remove_edge(edge)
+                        if edge.target != item: edge.target.remove_edge(edge)
+                        
+                        self.scene.removeItem(edge)
+                
+                # Kendisi de silinmemişse sil
+                if item.scene() is not None:
+                    self.scene.removeItem(item)
+                    self.nodeDeleted.emit(item.node_id)
+            
+            elif isinstance(item, EdgeItem):
+                # Sadece kenar seçilip silindiyse
+                if item.scene() is not None:
+                    # Node'ların listesinden çıkar
+                    item.source.remove_edge(item)
+                    item.target.remove_edge(item)
+                    
+                    self.scene.removeItem(item)

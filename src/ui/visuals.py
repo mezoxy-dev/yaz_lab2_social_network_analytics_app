@@ -1,6 +1,6 @@
-from PyQt5.QtWidgets import QGraphicsItem, QGraphicsEllipseItem, QGraphicsLineItem, QGraphicsPathItem
+from PyQt5.QtWidgets import QGraphicsItem, QGraphicsEllipseItem, QGraphicsLineItem, QGraphicsPathItem, QStyle
 from PyQt5.QtCore import Qt, QRectF, QLineF, QPointF
-from PyQt5.QtGui import QPen, QBrush, QColor, QPainter, QPolygonF, QPainterPath
+from PyQt5.QtGui import QPen, QBrush, QColor, QPainter, QPolygonF, QPainterPath, QPainterPathStroker
 import math
 
 class NodeItem(QGraphicsEllipseItem):
@@ -74,6 +74,10 @@ class NodeItem(QGraphicsEllipseItem):
     def add_edge(self, edge):
         self.edges.append(edge)
 
+    def remove_edge(self, edge):
+        if edge in self.edges:
+            self.edges.remove(edge)
+
 class EdgeItem(QGraphicsPathItem): # LineItem yerine PathItem kullanıyoruz
     def __init__(self, source_node, target_node, weight=1.0):
         super().__init__()
@@ -86,6 +90,9 @@ class EdgeItem(QGraphicsPathItem): # LineItem yerine PathItem kullanıyoruz
         pen = QPen(QColor("#2c3e50"), 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
         self.setPen(pen)
         self.setZValue(-1)
+        
+        # Seçilebilir yap (Silmek için gerekli)
+        self.setFlag(QGraphicsItem.ItemIsSelectable)
         
         self.source.add_edge(self)
         self.target.add_edge(self)
@@ -156,38 +163,35 @@ class EdgeItem(QGraphicsPathItem): # LineItem yerine PathItem kullanıyoruz
         extra = (self.pen().width() + self.arrow_size + 20)
         return rect.adjusted(-extra, -extra, extra, extra)
 
+    def shape(self):
+        """Tıklamayı kolaylaştırmak için daha kalın bir yol döndür."""
+        path = QPainterPathStroker()
+        path.setWidth(10) # Tıklama alanı genişliği
+        return path.createStroke(self.path())
+
     def paint(self, painter, option, widget):
         if not self.source or not self.target:
             return
-            
-        painter.setPen(self.pen())
-        painter.drawPath(self.path())
         
-        self.draw_arrow(painter)
+        # Seçili ise farklı çiz
+        # option.state & QStyle.State_Selected kontrolü için QStyle import edilmeli
+        # veya int değeri 0x00000001 (State_Selected)
+        
+        # Daha temiz olması için QStyle.State_Selected kullanmayı tercih ederim ama import eklemem lazım.
+        # Pratik çözüm: Qt.WA_... değil ama Style option flagleri.
+
+        if option.state & QStyle.State_Selected:
+            # Seçili: Kalın ve kırmızı
+            pen = QPen(QColor("#e74c3c"), 3, Qt.DashLine, Qt.RoundCap, Qt.RoundJoin)
+            painter.setPen(pen)
+            painter.drawPath(self.path())
+        else:
+            # Normal
+            painter.setPen(self.pen())
+            painter.drawPath(self.path())
         
         if self.weight != 1.0:
              self.draw_weight(painter)
-
-    def draw_arrow(self, painter):
-        path = self.path()
-        if path.isEmpty(): return
-
-        # Bitiş noktasındaki açıyı bul
-        # Bitiş noktasından çok az öncesine bakıp açıyı hesaplıyoruz (Türevi)
-        p_end = path.pointAtPercent(1.0)
-        p_pre = path.pointAtPercent(0.95) # %95 noktasındaki açı
-        
-        angle = math.atan2(p_end.y() - p_pre.y(), p_end.x() - p_pre.x())
-
-        arrow_p1 = p_end - QPointF(math.sin(angle + math.pi / 3) * self.arrow_size,
-                                   math.cos(angle + math.pi / 3) * self.arrow_size)
-        arrow_p2 = p_end - QPointF(math.sin(angle + math.pi - math.pi / 3) * self.arrow_size,
-                                   math.cos(angle + math.pi - math.pi / 3) * self.arrow_size)
-
-        arrow_head = QPolygonF([p_end, arrow_p1, arrow_p2])
-        
-        painter.setBrush(QBrush(QColor("#2c3e50")))
-        painter.drawPolygon(arrow_head)
 
     def draw_weight(self, painter):
         path = self.path()

@@ -23,12 +23,13 @@ class MainWindow(QMainWindow):
         self.canvas = GraphCanvas(self)
         self.layout.addWidget(self.canvas)
         
-        # Araç Çubuğu Oluşturma
-        self.create_toolbar()
-        self.create_menubar()
-        
         # Panelleri Oluştur
         self.create_dock_panels()
+        
+        # Menü Çubuğu Oluşturma
+        self.create_menubar()
+        # Araç Çubuğu Oluşturma
+        self.create_toolbar()
         
         # Sinyal Bağlantıları
         self.canvas.scene.selectionChanged.connect(self.on_selection_changed)
@@ -553,6 +554,11 @@ class MainWindow(QMainWindow):
         action_save = QAction("Save CSV", self)
         action_save.triggered.connect(self.save_graph)
         file_menu.addAction(action_save)
+
+        # View Menu
+        view_menu = menubar.addMenu("View")
+        view_menu.addAction(self.control_dock.toggleViewAction())
+        view_menu.addAction(self.properties_dock.toggleViewAction())
 
     def load_graph(self):
         """CSV dosyasını açar ve ekrana çizer."""
