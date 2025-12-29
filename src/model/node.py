@@ -3,8 +3,8 @@ import random
 class Node:
     def __init__(self, node_id, properties=None, x=None, y=None):
         """
-        node_id: Düğümün benzersiz kimliği (Örn: 1, 'A')
-        properties: Sözlük yapısında özellikler {'aktiflik': 0.8, 'etkilesim': 12, ...}
+        node_id: dugumun benzersiz kimligi (orn: 1, 'A')
+        properties: sözlük yapisinda özellikler {'aktiflik': 0.8, 'etkilesim': 12, ...}
         x, y: Canvas üzerindeki koordinatlar
         """
         self.id = node_id
@@ -13,7 +13,7 @@ class Node:
         self.x = x if x is not None else random.randint(50, 750)
         self.y = y if y is not None else random.randint(50, 550)
         
-        # CSV'den gelen özelliklerin atanması [cite: 56]
+        # CSV'den gelen özelliklerin atanması
         # Eğer özellik gelmezse varsayılan 0 atanır (Hata almamak için)
         props = properties if properties else {}
         self.aktiflik = float(props.get('aktiflik', 0.0))       # Özellik I
@@ -28,11 +28,11 @@ class Node:
         self.radius = 20 
 
     def get_coordinates(self):
-        """Çizim için koordinatları döndürür."""
+        """Çizim için koordinatları dondurur."""
         return (self.x, self.y)
 
     def set_color(self, new_color):
-        """Algoritma sonrası renk değişimi için."""
+        """Algoritma sonrası renk degisimi icin."""
         self.color = new_color
 
     def __repr__(self):
@@ -40,7 +40,7 @@ class Node:
         return f"Node(ID={self.id}, A={self.aktiflik}, E={self.etkilesim}, Renk={self.color})"
 
     def to_dict(self):
-        """Düğümü JSON veya CSV'ye kaydederken sözlüğe çevirir."""
+        """Dugumu JSON veya CSV'ye kaydetmek icin sözlüğe cevirir."""
         return {
             "id": self.id,
             "x": self.x,
