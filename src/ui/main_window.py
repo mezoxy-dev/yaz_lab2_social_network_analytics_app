@@ -1,6 +1,7 @@
 # GÖREV: Üye A - Arayüz Kodları
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QDockWidget, QTabWidget, QPushButton, QComboBox, QLabel, QFormLayout, QHBoxLayout, QFileDialog, QMessageBox, QAction, QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox
 from PyQt5.QtCore import Qt, QSize, QTimer
+import time
 from .canvas import GraphCanvas
 from .properties_panel import PropertiesPanel
 from src.model.graph import Graph
@@ -203,114 +204,7 @@ class MainWindow(QMainWindow):
         if current_end in node_ids:
             self.combo_end_node.setCurrentText(current_end)
 
-    def run_algorithm(self):
-        """Seçili algoritmayı çalıştırır."""
-        from .visuals import NodeItem, EdgeItem
-        
-        algo_name = self.combo_algo.currentText()
-        start_id = self.combo_start_node.currentText()
-        end_id = self.combo_end_node.currentText()
-        
-        if not start_id:
-            self.lbl_result.setText("Error: Please select a start node.")
-            return
 
-        # 1. UI Modelini Algorithm Model'ine (Graph) Dönüştür
-        graph = Graph()
-        
-        # Once dugumleri ekle
-        for item in self.canvas.scene.items():
-            if isinstance(item, NodeItem):
-                # UI'daki NodeItem'ın sadece ID'si ve posu var, properties şimdilik boş
-                # TODO: PropertiesPanel'den güncellenen veriyi buraya çekmek gerekebilir
-                model_node = Node(item.node_id, x=item.x(), y=item.y())
-                graph.add_node(model_node)
-        
-        # Sonra kenarlari ekle
-        for item in self.canvas.scene.items():
-            if isinstance(item, EdgeItem):
-                graph.add_edge(item.source.node_id, item.target.node_id)
-                # Not: add_edge otomatik weight hesaplar. Eğer biz elle girilen 
-                # ağırlığı kullanmak istersek graph.edges listesinden son eklenen edge'i bulup güncellemeliyiz.
-                # Şimdilik basitçe bırakıyoruz.
-
-        # 2. Algoritma Seçimi
-        algorithm = None
-        if "BFS" in algo_name:
-            algorithm = BFSAlgorithm()
-        elif "DFS" in algo_name:
-            algorithm = DFSAlgorithm()
-        elif "Dijkstra" in algo_name:
-            algorithm = DijkstraAlgorithm()
-        elif "A*" in algo_name:
-            algorithm = AStarAlgorithm()
-        elif "Coloring" in algo_name:
-            algorithm = WelshPowellAlgorithm()
-        elif "Clustering" in algo_name:
-            algorithm = ConnectedComponentsAlgorithm()
-        elif "Degree Centrality" in algo_name:
-            algorithm = DegreeCentralityAlgorithm()
-        else:
-            self.lbl_result.setText(f"Not implemented: {algo_name}")
-            return
-            
-        # 3. Çalıştır
-        try:
-            print(f"Running {algo_name}")
-            
-            # Algoritma türüne göre farklı işlem yap
-            if isinstance(algorithm, WelshPowellAlgorithm):
-                # {node_id: color_code} döner
-                colors = algorithm.execute(graph)
-                self.apply_coloring(colors)
-                self.lbl_result.setText(f"Coloring applied. Total colors: {len(set(colors.values()))}")
-                return # Renklendirme bitti, path boyama yapma
-                
-            elif isinstance(algorithm, ConnectedComponentsAlgorithm):
-                # [[id, id], [id]] döner
-                components = algorithm.execute(graph)
-                
-                # Her kümeye farklı renk ata
-                colors = [
-                    "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#00FFFF", "#FF00FF", 
-                    "#FFA500", "#800080", "#008080", "#FFC0CB", "#800000", "#008000"
-                ]
-                
-                node_colors_map = {}
-                for i, component in enumerate(components):
-                    color = colors[i % len(colors)]
-                    for node_id in component:
-                        node_colors_map[node_id] = color
-                        
-                self.apply_coloring(node_colors_map)
-                self.lbl_result.setText(f"Components found: {len(components)}. Coloring applied.")
-                return
-            
-            elif isinstance(algorithm, DegreeCentralityAlgorithm):
-                # [(node_id, score), ...] döner
-                scores = algorithm.execute(graph)
-                self.show_centrality_results(scores)
-                self.lbl_result.setText("Centrality scores calculated.")
-                return 
-
-            # Diğer Path algoritmaları için
-            if not start_id: # Sadece path algoritmaları için gerekli
-                self.lbl_result.setText("Error: Start Node required for path algorithms.")
-                return
-
-            result_path = algorithm.execute(graph, start_id, end_id)
-            
-            # 4. Sonucu Göster (Path)
-            if result_path:
-                result_str = " -> ".join(map(str, result_path))
-                self.lbl_result.setText(f"Path: {result_str}")
-                self.highlight_path(result_path)
-            else:
-                self.lbl_result.setText("No path found.")
-                
-        except Exception as e:
-            self.lbl_result.setText(f"Error: {str(e)}")
-            print(e)
             
     def highlight_path(self, path_ids):
         """Bulunan yolu canvas üzerinde boyar."""
@@ -487,15 +381,19 @@ class MainWindow(QMainWindow):
         try:
             print(f"Running {algo_name}")
             
+            start_time = time.time()
+            
             # 1. Renklendirme ve Analizler (Animasyonsuz veya farklı)
             if isinstance(algorithm, WelshPowellAlgorithm):
                 colors = algorithm.execute(graph)
+                elapsed_time = (time.time() - start_time) * 1000
                 self.apply_coloring(colors)
-                self.lbl_result.setText(f"Coloring applied. Total colors: {len(set(colors.values()))}")
+                self.lbl_result.setText(f"Coloring applied. Total colors: {len(set(colors.values()))} (Time: {elapsed_time:.2f} ms)")
                 return
                 
             elif isinstance(algorithm, ConnectedComponentsAlgorithm):
                 components = algorithm.execute(graph)
+                elapsed_time = (time.time() - start_time) * 1000
                 # ... Renklendirme kodu ...
                 colors = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#00FFFF", "#FF00FF", "#FFA500", "#800080", "#008080", "#FFC0CB", "#800000", "#008000"]
                 node_colors_map = {}
@@ -504,23 +402,26 @@ class MainWindow(QMainWindow):
                     for node_id in component:
                         node_colors_map[node_id] = color
                 self.apply_coloring(node_colors_map)
-                self.lbl_result.setText(f"Components found: {len(components)}. Coloring applied.")
+                self.lbl_result.setText(f"Components found: {len(components)}. Coloring applied. (Time: {elapsed_time:.2f} ms)")
                 return
             
             elif isinstance(algorithm, DegreeCentralityAlgorithm):
                 scores = algorithm.execute(graph)
+                elapsed_time = (time.time() - start_time) * 1000
                 self.show_centrality_results(scores)
+                self.lbl_result.setText(f"Centrality scores calculated. (Time: {elapsed_time:.2f} ms)")
                 return 
 
             # 2. Gezinti ve Yol Algoritmaları (Animasyonlu)
             result_list = algorithm.execute(graph, start_id, end_id)
+            elapsed_time = (time.time() - start_time) * 1000
             
             if not result_list:
-                self.lbl_result.setText("No path/result found.")
+                self.lbl_result.setText(f"No path/result found. (Time: {elapsed_time:.2f} ms)")
                 return
 
             result_str = " -> ".join(map(str, result_list))
-            self.lbl_result.setText(f"Result: {result_str}")
+            self.lbl_result.setText(f"Result: {result_str} (Time: {elapsed_time:.2f} ms)")
             
             # Animasyon isteniyor mu?
             if self.chk_animate.isChecked():
