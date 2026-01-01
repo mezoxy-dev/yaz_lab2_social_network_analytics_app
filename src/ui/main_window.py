@@ -8,7 +8,8 @@ from src.model.graph import Graph
 from src.model.node import Node
 from src.algorithms.bfs_dfs import BFSAlgorithm, DFSAlgorithm
 from src.algorithms.shortest_path import DijkstraAlgorithm, AStarAlgorithm
-from src.algorithms.analysis import WelshPowellAlgorithm, ConnectedComponentsAlgorithm, DegreeCentralityAlgorithm
+from src.algorithms.analysis import DegreeCentralityAlgorithm, ConnectedComponentsAlgorithm
+from src.algorithms.coloring import WelshPowellAlgorithm
 from src.model.file_manager import CSVFileManager
 
 class MainWindow(QMainWindow):
@@ -29,19 +30,13 @@ class MainWindow(QMainWindow):
         
         # Menü Çubuğu Oluşturma
         self.create_menubar()
-        # Araç Çubuğu Oluşturma
-        self.create_toolbar()
         
-        # Sinyal Bağlantıları
-        self.canvas.scene.selectionChanged.connect(self.on_selection_changed)
         # Sinyal Bağlantıları
         self.canvas.scene.selectionChanged.connect(self.on_selection_changed)
         self.canvas.itemMoved.connect(self.properties_panel.update_selection)
         self.canvas.nodeAdded.connect(self.update_combos)
         self.canvas.nodeDeleted.connect(self.update_combos)
         
-        # Status Bar
-        self.status_bar = self.statusBar()
         # Status Bar
         self.status_bar = self.statusBar()
         self.status_bar.showMessage("Ready")
@@ -125,9 +120,11 @@ class MainWindow(QMainWindow):
         self.combo_start_node = QComboBox()
         self.combo_end_node = QComboBox()
         
-        form_layout.addRow("Start Node:", self.combo_start_node)
-        form_layout.addRow("End Node:", self.combo_end_node)
-        form_layout.addRow("End Node:", self.combo_end_node)
+        self.lbl_start_node = QLabel("Start Node:")
+        self.lbl_end_node = QLabel("End Node:")
+        
+        form_layout.addRow(self.lbl_start_node, self.combo_start_node)
+        form_layout.addRow(self.lbl_end_node, self.combo_end_node)
         layout.addLayout(form_layout)
         
         # Animasyon Seçeneği
@@ -141,6 +138,11 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.btn_run)
         
         # Sonuç Alanı
+        layout.addWidget(QLabel("<b>Execution Time:</b>"))
+        self.lbl_time = QLabel("-")
+        self.lbl_time.setStyleSheet("border: 1px solid #3498db; padding: 5px; background: #ecf0f1; font-weight: bold; color: #2c3e50;")
+        layout.addWidget(self.lbl_time)
+
         layout.addWidget(QLabel("<b>Result:</b>"))
         self.lbl_result = QLabel("Result will appear here...")
         self.lbl_result.setWordWrap(True)
@@ -152,6 +154,28 @@ class MainWindow(QMainWindow):
         
         # Signal Bağlantısı
         self.btn_run.clicked.connect(self.run_algorithm)
+        self.combo_algo.currentIndexChanged.connect(self.update_input_fields)
+        
+        # İlk açılışta güncelle
+        self.update_input_fields()
+
+    def update_input_fields(self):
+        """Seçili algoritmaya göre input alanlarını gizle/göster."""
+        algo = self.combo_algo.currentText()
+        
+        show_start = True
+        show_end = True
+        
+        if "BFS" in algo or "DFS" in algo:
+            show_end = False # Traversals don't need end node
+        elif "Clustering" in algo or "Coloring" in algo or "Centrality" in algo:
+            show_start = False
+            show_end = False # Global algorithms don't need inputs
+            
+        self.lbl_start_node.setVisible(show_start)
+        self.combo_start_node.setVisible(show_start)
+        self.lbl_end_node.setVisible(show_end)
+        self.combo_end_node.setVisible(show_end)
 
     def on_selection_changed(self):
         items = self.canvas.scene.selectedItems()
@@ -160,22 +184,12 @@ class MainWindow(QMainWindow):
         else:
             self.properties_panel.update_selection(None)
 
-    def create_toolbar(self):
-        toolbar = self.addToolBar("Tools")
-        
-        # Aksiyonlar
-        self.action_select = toolbar.addAction("Select")
-        self.action_add_node = toolbar.addAction("Add Node")
-        self.action_add_edge = toolbar.addAction("Add Edge")
-        self.action_clear = toolbar.addAction("Clear")
-        
-        # Bağlantılar
-        self.action_select.triggered.connect(lambda: self.canvas.set_mode("SELECT"))
-        self.action_add_node.triggered.connect(lambda: self.canvas.set_mode("ADD_NODE"))
-        self.action_add_edge.triggered.connect(lambda: self.canvas.set_mode("ADD_EDGE"))
-        self.action_add_edge.triggered.connect(lambda: self.canvas.set_mode("ADD_EDGE"))
-        self.action_clear.triggered.connect(self.canvas.scene.clear)
-        self.action_clear.triggered.connect(self.update_combos)
+    def on_selection_changed(self):
+        items = self.canvas.scene.selectedItems()
+        if items:
+            self.properties_panel.update_selection(items[0])
+        else:
+            self.properties_panel.update_selection(None)
 
     def update_combos(self):
         """Combobox'ları kandaki düğümlerle günceller."""
@@ -285,11 +299,6 @@ class MainWindow(QMainWindow):
         
         dialog.exec_()
 
-        btn_close.clicked.connect(dialog.accept)
-        layout.addWidget(btn_close)
-        
-        dialog.exec_()
-
     def start_animation(self, node_list, is_path=False):
         """Animasyonu başlatır."""
         self.animation_queue = node_list
@@ -359,7 +368,8 @@ class MainWindow(QMainWindow):
         # Graph oluşturma kısmı aynı...
         for item in self.canvas.scene.items():
             if isinstance(item, NodeItem):
-                model_node = Node(item.node_id, x=item.x(), y=item.y())
+                props = item.properties if hasattr(item, 'properties') else {}
+                model_node = Node(item.node_id, properties=props, x=item.x(), y=item.y())
                 graph.add_node(model_node)
         for item in self.canvas.scene.items():
             if isinstance(item, EdgeItem):
@@ -378,6 +388,12 @@ class MainWindow(QMainWindow):
             self.lbl_result.setText(f"Not implemented: {algo_name}")
             return
             
+        # DEBUG: Check if weights are all 1.0 (implying missing properties)
+        weights = [e.weight for e in graph.edges]
+        if weights and all(w == 1.0 for w in weights):
+            print("WARNING: All edge weights are 1.0! Node properties might be missing.")
+            QMessageBox.warning(self, "Data Warning", "All edge weights are 1.0!\n\nThis usually means node properties (Active, Interaction, etc.) are missing or zero.\n\nShortest Path will behave like BFS (fewest hops).")
+            
         try:
             print(f"Running {algo_name}")
             
@@ -387,13 +403,17 @@ class MainWindow(QMainWindow):
             if isinstance(algorithm, WelshPowellAlgorithm):
                 colors = algorithm.execute(graph)
                 elapsed_time = (time.time() - start_time) * 1000
+                self.lbl_time.setText(f"{elapsed_time:.2f} ms")
+                
                 self.apply_coloring(colors)
-                self.lbl_result.setText(f"Coloring applied. Total colors: {len(set(colors.values()))} (Time: {elapsed_time:.2f} ms)")
+                self.lbl_result.setText(f"Coloring applied. Total colors: {len(set(colors.values()))}")
                 return
                 
             elif isinstance(algorithm, ConnectedComponentsAlgorithm):
                 components = algorithm.execute(graph)
                 elapsed_time = (time.time() - start_time) * 1000
+                self.lbl_time.setText(f"{elapsed_time:.2f} ms")
+                
                 # ... Renklendirme kodu ...
                 colors = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#00FFFF", "#FF00FF", "#FFA500", "#800080", "#008080", "#FFC0CB", "#800000", "#008000"]
                 node_colors_map = {}
@@ -402,26 +422,29 @@ class MainWindow(QMainWindow):
                     for node_id in component:
                         node_colors_map[node_id] = color
                 self.apply_coloring(node_colors_map)
-                self.lbl_result.setText(f"Components found: {len(components)}. Coloring applied. (Time: {elapsed_time:.2f} ms)")
+                self.lbl_result.setText(f"Components found: {len(components)}. Coloring applied.")
                 return
             
             elif isinstance(algorithm, DegreeCentralityAlgorithm):
                 scores = algorithm.execute(graph)
                 elapsed_time = (time.time() - start_time) * 1000
+                self.lbl_time.setText(f"{elapsed_time:.2f} ms")
+                
                 self.show_centrality_results(scores)
-                self.lbl_result.setText(f"Centrality scores calculated. (Time: {elapsed_time:.2f} ms)")
+                self.lbl_result.setText(f"Centrality scores calculated.")
                 return 
 
             # 2. Gezinti ve Yol Algoritmaları (Animasyonlu)
             result_list = algorithm.execute(graph, start_id, end_id)
             elapsed_time = (time.time() - start_time) * 1000
+            self.lbl_time.setText(f"{elapsed_time:.2f} ms")
             
             if not result_list:
-                self.lbl_result.setText(f"No path/result found. (Time: {elapsed_time:.2f} ms)")
+                self.lbl_result.setText(f"No path/result found.")
                 return
 
             result_str = " -> ".join(map(str, result_list))
-            self.lbl_result.setText(f"Result: {result_str} (Time: {elapsed_time:.2f} ms)")
+            self.lbl_result.setText(f"{result_str}")
             
             # Animasyon isteniyor mu?
             if self.chk_animate.isChecked():
@@ -458,6 +481,10 @@ class MainWindow(QMainWindow):
 
         # View Menu
         view_menu = menubar.addMenu("View")
+        action_layout = QAction("Auto Layout (Force-Directed)", self)
+        action_layout.triggered.connect(self.apply_layout)
+        view_menu.addAction(action_layout)
+
         view_menu.addAction(self.control_dock.toggleViewAction())
         view_menu.addAction(self.properties_dock.toggleViewAction())
 
@@ -487,7 +514,13 @@ class MainWindow(QMainWindow):
                 # DİKKAT: CSV'de X,Y yoksa file_manager load ederken rastgele atamalıydı.
                 # Node.__init__ içinde rastgele atanıyor.
                 
-                item = NodeItem(str(node_id), node.x, node.y)
+                # ID, X, Y ve Özellikleri NodeItem'a aktar
+                props = {
+                    'aktiflik': node.aktiflik,
+                    'etkilesim': node.etkilesim,
+                    'baglanti_sayisi': 0 # Sıfırdan başlat, kenarlar eklendikçe artacak
+                }
+                item = NodeItem(str(node_id), node.x, node.y, properties=props, label=node.name)
                 self.canvas.scene.addItem(item)
                 node_items[node_id] = item
                 
@@ -536,7 +569,9 @@ class MainWindow(QMainWindow):
             if isinstance(item, NodeItem):
                 # Özellikleri şimdilik sabit veya random tutuyoruz
                 # İleride PropertiesPanel'den güncellenen değerler NodeItem içinde saklanmalı
-                node = Node(item.node_id, x=item.x(), y=item.y())
+                # Özellikleri koru
+                props = item.properties if hasattr(item, 'properties') else {}
+                node = Node(item.node_id, properties=props, x=item.x(), y=item.y())
                 
                 # Eğer özellik panelinden güncellenmiş değerler varsa onları al
                 # (Şimdilik properties_panel ile Canvas arasında tam senkronizasyon yok, basitçe yapıyoruz)
@@ -552,3 +587,27 @@ class MainWindow(QMainWindow):
              self.status_bar.showMessage(f"Saved: {file_path}")
         else:
              QMessageBox.critical(self, "Error", "Failed to save file.")
+
+    def apply_layout(self):
+        """Grafa otomatik düzen (Spring Layout) uygular."""
+        from src.algorithms.layout import SpringLayout
+        from src.ui.visuals import NodeItem, EdgeItem
+        
+        node_items = [item for item in self.canvas.scene.items() if isinstance(item, NodeItem)]
+        edge_items = [item for item in self.canvas.scene.items() if isinstance(item, EdgeItem)]
+        
+        if not node_items: return
+        
+        self.status_bar.showMessage("Applying layout...")
+        # Arayüz donmasın diye processEvents yapılabilir ama 50 iterasyon hızlı sürer
+        
+        layout = SpringLayout(800, 600)
+        new_positions = layout.calculate_layout(node_items, edge_items)
+        
+        for node in node_items:
+            if node.node_id in new_positions:
+                x, y = new_positions[node.node_id]
+                node.setPos(x, y)
+                # Düğüm hareket edince kenarlar otomatik güncellenir (itemChange ile).
+        
+        self.status_bar.showMessage("Layout applied.")

@@ -39,33 +39,28 @@ class DijkstraAlgorithm(Algorithm):
             if current_dist > distances[current_id]:
                 continue
 
-            # Komşuları gez
+                # Komşuları gez
             # graph.nodes[current_id] diyerek Node nesnesine ulaşıyoruz
             # graph.edges listesini taramak yerine komşuluk listesinden gitmek daha hızlıdır ama
             # Edge ağırlığına ihtiyacımız var.
             
-            # Pratik Yöntem: Tüm kenarları gez (Küçük graflar için sorun olmaz)
-            # Daha optimize yöntem: Graph sınıfında adjacency_list içinde weight tutmaktır.
-            # Şimdilik Edge listesinden bulalım:
-            
-            for edge in graph.edges:
-                neighbor_id = None
+            # OPTIMIZE EDILDI: Graph.get_neighbors ve get_edge kullaniliyor
+            neighbors = graph.get_neighbors(current_id)
+            if not neighbors:
+                continue
                 
-                # Bu kenar bizim düğümden mi çıkıyor?
-                if edge.source.id == current_id:
-                    neighbor_id = edge.target.id
-                elif edge.target.id == current_id: # Yönsüz olduğu için tersine de bak
-                    neighbor_id = edge.source.id
+            for neighbor_id in neighbors:
+                edge = graph.get_edge(current_id, neighbor_id)
+                if not edge: continue
                 
-                if neighbor_id is not None:
-                    # Yeni maliyet = Şu anki maliyet + Kenar Ağırlığı
-                    new_dist = current_dist + edge.weight
-                    
-                    # Eğer daha kısa bir yol bulduysak güncelle
-                    if new_dist < distances[neighbor_id]:
-                        distances[neighbor_id] = new_dist
-                        predecessors[neighbor_id] = current_id
-                        heapq.heappush(pq, (new_dist, neighbor_id))
+                # Yeni maliyet = Şu anki maliyet + Kenar Ağırlığı
+                new_dist = current_dist + edge.weight
+                
+                # Eğer daha kısa bir yol bulduysak güncelle
+                if new_dist < distances[neighbor_id]:
+                    distances[neighbor_id] = new_dist
+                    predecessors[neighbor_id] = current_id
+                    heapq.heappush(pq, (new_dist, neighbor_id))
 
         # Yolu Geriye Doğru Oluştur (Backtrack)
         path = []
@@ -85,8 +80,23 @@ class AStarAlgorithm(Algorithm):
         return "A* (A-Star) Algoritması"
 
     def heuristic(self, node_a, node_b):
-        """Öklid Mesafesi (Kuş uçuşu) hesaplar."""
-        return math.sqrt((node_a.x - node_b.x)**2 + (node_a.y - node_b.y)**2)
+        """
+        Sezgisel (Heuristic) Fonksiyon:
+        Kullanıcının isteği üzerine 'Piksel Mesafesi' KESİNLİKLE kullanılmamaktadır.
+        Bunun yerine 'Sosyal Özellik Uzayı' (Feature Space) üzerindeki Öklid mesafesi kullanılır.
+        
+        h(n) = sqrt((Aktiflik_fark)^2 + (Etkilesim_fark)^2 + ...)
+        
+        Bu değer, gerçek maliyet (Cost = 1 + h(n)) değerinden her zaman küçüktür (Admissible).
+        Bu sayede A* hem doğru sonucu bulur hem de sosyal özellik olarak hedefe benzeyen
+        düğümleri önceleyerek aramayı hızlandırır.
+        """
+        d_aktiflik = node_a.aktiflik - node_b.aktiflik
+        d_etkilesim = node_a.etkilesim - node_b.etkilesim
+        d_baglanti = node_a.baglanti_sayisi - node_b.baglanti_sayisi
+        
+        # Özellik uzayındaki direkt kuş uçuşu mesafe
+        return math.sqrt(d_aktiflik**2 + d_etkilesim**2 + d_baglanti**2)
 
     def execute(self, graph, start_node_id=None, end_node_id=None):
         if start_node_id not in graph.nodes or end_node_id not in graph.nodes:
@@ -96,40 +106,47 @@ class AStarAlgorithm(Algorithm):
         g_score = {node_id: float('inf') for node_id in graph.nodes}
         g_score[start_node_id] = 0
         
-        # F Score: G Score + Heuristic (Tahmini toplam maliyet)
+        # F Score: G Score + Heuristic
         f_score = {node_id: float('inf') for node_id in graph.nodes}
         f_score[start_node_id] = self.heuristic(graph.nodes[start_node_id], graph.nodes[end_node_id])
         
         predecessors = {node_id: None for node_id in graph.nodes}
         
-        # Kuyrukta F Score'a göre sıralanır
+        # Kuyruk F Score'a göre sıralı
         pq = [(f_score[start_node_id], start_node_id)]
         
+        visited = set() # Optimize: Aynı düğümü tekrar tekrar işlememek için
+
         while pq:
             _, current_id = heapq.heappop(pq)
             
             if current_id == end_node_id:
                 break
+            
+            # Daha kötü bir yoldan tekrar geldiysek atla
+            # (Set kullanarak visited kontrolü veya g_score kontrolü yapılabilir)
+            
+            neighbors = graph.get_neighbors(current_id)
+            if not neighbors: continue
                 
-            for edge in graph.edges:
-                neighbor_id = None
-                if edge.source.id == current_id: neighbor_id = edge.target.id
-                elif edge.target.id == current_id: neighbor_id = edge.source.id
+            for neighbor_id in neighbors:
+                edge = graph.get_edge(current_id, neighbor_id)
+                if not edge: continue
+
+                # DİKKAT: edge.weight artık 'Cost' (Maliyet) veriyor.
+                # PRD'deki 'Similarity' (1/1+diff) değil.
+                tentative_g_score = g_score[current_id] + edge.weight
                 
-                if neighbor_id:
-                    tentative_g_score = g_score[current_id] + edge.weight
+                if tentative_g_score < g_score[neighbor_id]:
+                    predecessors[neighbor_id] = current_id
+                    g_score[neighbor_id] = tentative_g_score
                     
-                    if tentative_g_score < g_score[neighbor_id]:
-                        predecessors[neighbor_id] = current_id
-                        g_score[neighbor_id] = tentative_g_score
+                    h = self.heuristic(graph.nodes[neighbor_id], graph.nodes[end_node_id])
+                    f_score[neighbor_id] = g_score[neighbor_id] + h
+                    
+                    heapq.heappush(pq, (f_score[neighbor_id], neighbor_id))
                         
-                        # F = G + H
-                        h = self.heuristic(graph.nodes[neighbor_id], graph.nodes[end_node_id])
-                        f_score[neighbor_id] = g_score[neighbor_id] + h
-                        
-                        heapq.heappush(pq, (f_score[neighbor_id], neighbor_id))
-                        
-        # Yolu Oluştur (Dijkstra ile aynı mantık)
+        # Yolu Geriye İzle
         path = []
         step = end_node_id
         while step is not None:
