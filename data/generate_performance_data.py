@@ -7,78 +7,114 @@ def generate_performance_data(filename="performance_social_network.csv"):
     nodes = []
     edges = []
     
-    # SENARYO:
-    # A*'ın bariz üstünlüğünü göstermek için "Coğrafi/Özellik" yönelimli bir labirent.
-    # Start: (0, 0, 0)
-    # Target: (1000, 0, 0) -> Sadece 'Aktiflik' özelliği çok yüksek.
-    # Yol: (10,0,0) -> (20,0,0) -> ... dümdüz gidiyor.
-    # Tuzaklar: Yan yollar (0, 10, 0) vb. veya geriye giden yollar.
-    # Bu durumda Heuristic (Target'a kalan mesafe) doğru yolda sürekli azalırken,
-    # yanlış yollarda artacak veya sabit kalacak.
+    # SENARYO V3 (The Trap):
+    # Dijkstra "Ucuz" yolu sever. A* "Hedefe Giden" yolu sever.
+    # Biz öyle bir tuzak kuracağız ki;
+    # - Hedefe giden yol PAHALI olacak (Cost ~ 21).
+    # - Hedefe gitmeyen (Tuzak) yollar UCUZ olacak (Cost ~ 2).
+    #
+    # Sonuç:
+    # Dijkstra ucuz diye tuzaklara doluşacak.
+    # A* pahalı da olsa doğru yönü seçecek çünkü Heuristic (Mesafe) azalacak.
     
-    # 1. Optimal Yol (The Highway) - 100 Düğüm
-    # Aktiflik 0'dan 1000'e gidiyor. Diğerleri 0.
-    path_len = 100
-    step_size = 1000 / path_len # 10 birim artış
+    # Hedef Noktası: Aktiflik = 1000, Etkileşim = 0
+    target_val = 1000.0
     
-    path_ids = []
-    for i in range(path_len + 1): # 0..100
-        val = i * step_size
-        node_id = i + 1
+    # 1. Start Node
+    nodes.append({
+        "id": 1,
+        "name": "Start",
+        "aktiflik": 0.0,
+        "etkilesim": 0.0,
+        "baglanti_sayisi": 0.0, # Etkisiz eleman olması için küçük tutuyoruz veya sabit
+        "type": "start"
+    })
+    
+    # 2. Optimal Path (The Hardware - Pahalı Otoban)
+    # 50 Adım. Her adımda Aktiflik +20 artacak.
+    # Özellik Farkı (Feature Dist) = 20.
+    # Edge Weight = 1 + 20 = 21.
+    
+    path_len = 50
+    current_node = 1 # Start
+    final_node = None
+    
+    for i in range(path_len):
+        new_id = len(nodes) + 1
+        val = (i + 1) * 20.0 # 20, 40, 60 ... 1000
+        
         nodes.append({
-            "id": node_id,
-            "name": f"Path_{i}",
-            "aktiflik": val, # Ana yönlendirici özellik
-            "etkilesim": 0,
-            "baglanti_sayisi": 0,
+            "id": new_id,
+            "name": f"Path_{i+1}",
+            "aktiflik": val,
+            "etkilesim": 0.0,
+            "baglanti_sayisi": 0.0,
             "type": "path"
         })
-        path_ids.append(node_id)
         
-        # Zincirleme bağla
-        if i > 0:
-            edges.append((i, i + 1))
-            
-    start_id = 1
-    end_id = path_len + 1
-
-    # 2. Tuzak Ağacı (The Distraction Tree) - 1500 Düğüm
-    # Bu düğümler 'Aktiflik' olarak ilerlemiyor (0 civarında kalıyor)
-    # Ama 'Etkileşim' olarak yanlara açılıyor.
-    # Dijkstra: Weight = 1 + dist. Yanlara gitmek (1 + 10) = 11 maliyet.
-    # İleri gitmek (1 + 10) = 11 maliyet.
-    # Dijkstra hepsini dener.
-    # A*: Yanlara gitmek Heuristic'i (Target'a mesafe) azaltmaz. İleri gitmek azaltır.
+        edges.append((current_node, new_id))
+        current_node = new_id
+        
+    final_node = current_node # End Node (ID: 51)
     
-    decoy_start_id = end_id + 1
-    num_decoys = 1500
+    # 3. Tuzak Ağı (The Cheap Swamp - Ucuz Bataklık)
+    # 2000 Düğüm. 
+    # Bunlar Start Node'dan başlayarak "Etkileşim" ekseninde (yanlara) yayılacak.
+    # Adım başı değişim az olacak (Örn: +1). 
+    # Feature Dist = 1. Edge Weight = 1 + 1 = 2.
+    #
+    # Dijkstra START noktasında bakacak:
+    # A) Path_1 (Maliyet 21).
+    # B) Decoy_1 (Maliyet 2).
+    # Dijkstra B'yi seçecek. Sonra B'den C'ye (2)... Maliyeti 21 olana kadar 10 adım atabilir.
+    # Bu yüzden binlerce düğümü gezecek.
     
-    # Tuzakları Start node ve yolun başındaki düğümlere ekleyelim
+    num_decoys = 2000
+    decoy_start_index = len(nodes)
+    
+    # Tuzak ağacını özyinelemesiz manuel kuralım
+    # İlk decoylar Start'a bağlı
+    # Sonrakiler rastgele eski decoylara bağlı
+    
+    # Decoy ID'lerini tutalım
+    decoy_ids = []
+    
     for i in range(num_decoys):
-        node_id = decoy_start_id + i
+        node_id = len(nodes) + 1
         
-        # Rastgele bir decoy'a veya yolun başına bağla
-        if i < 10:
-             parent = random.choice(range(start_id, start_id + 5))
+        # Kime bağlanacak?
+        if i < 5:
+            parent = 1 # Start node
         else:
-             # Ağaca bağla
-             parent_offset = random.randint(1, min(i, 50))
-             parent = node_id - parent_offset
+            # Rastgele bir önceki decoy (Ağaç yapısı)
+            # Ama çok eskiye gitmesin ki derinleşsin bataklık
+            window = 50 
+            start_idx = max(0, len(decoy_ids) - window)
+            parent = decoy_ids[random.randint(start_idx, len(decoy_ids) - 1)]
+            
+        # Özellikler:
+        # Aktiflik: Start gibi 0 kalsın (veya çok az değişsin). Hedefe yaklaşmasın!
+        # Etkileşim: Parent'tan +1 veya -1 fark etsin.
+        # Baglanti: Sabit.
         
-        # Özellikler: Aktiflik DÜŞÜK (İlerlemiyor), Etkileşim RASTGELE (Yan yol)
-        # Target (1000, 0, 0) olduğu için Etkileşim'in artması Heuristic'i büyütür (Kötüleştirir).
-        # A* buraya girmek istemez.
+        # Parent özelliklerini bul (Basitlik için listeden okumak yerine simüle ediyoruz, 
+        # çünkü node listesinde dictionary var)
+        # Daha temizi: Etkileşim sürekli artsın
+        
+        etkilesim_val = (i % 100) * 1.5 # Yanlara doğru gidiyor gibi
         
         nodes.append({
             "id": node_id,
-            "name": f"Decoy_{i}",
-            "aktiflik": random.uniform(0, 50), # Hedefe gitmiyor
-            "etkilesim": random.uniform(0, 1000), # Yanlara savruluyor
-            "baglanti_sayisi": 0,
+            "name": f"Decoy_{i+1}",
+            "aktiflik": random.uniform(0, 5.0), # Hedefe (1000) KESİNLİKLE yaklaşmıyor
+            "etkilesim": etkilesim_val, 
+            "baglanti_sayisi": 0.0,
             "type": "decoy"
         })
         
         edges.append((parent, node_id))
+        decoy_ids.append(node_id)
+
 
     # Komşuluk Listesi
     adj_list = {node['id']: [] for node in nodes}
@@ -110,9 +146,8 @@ def generate_performance_data(filename="performance_social_network.csv"):
             })
             
     print(f"Dataset generated at: {file_path}")
-    print(f"Nodes: {len(nodes)}, Edges: {len(edges)}")
-    print(f"Start Node: {start_id} (Path_0)")
-    print(f"End Node: {end_id} (Path_{path_len})")
+    print(f"Start Node: 1")
+    print(f"End Node: {final_node}")
 
 if __name__ == "__main__":
     generate_performance_data()

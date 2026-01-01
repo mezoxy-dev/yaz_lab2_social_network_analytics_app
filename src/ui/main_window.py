@@ -1,6 +1,7 @@
 # GÖREV: Üye A - Arayüz Kodları
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QDockWidget, QTabWidget, QPushButton, QComboBox, QLabel, QFormLayout, QHBoxLayout, QFileDialog, QMessageBox, QAction, QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox
 from PyQt5.QtCore import Qt, QSize, QTimer
+from PyQt5.QtGui import QColor, QBrush
 import time
 from .canvas import GraphCanvas
 from .properties_panel import PropertiesPanel
@@ -149,15 +150,26 @@ class MainWindow(QMainWindow):
         self.lbl_result.setStyleSheet("border: 1px solid #ccc; padding: 5px; background: white;")
         layout.addWidget(self.lbl_result)
         
+        # Tablo Sonuç Butonu
+        self.btn_show_table = QPushButton("Show Table Result")
+        self.btn_show_table.setStyleSheet("background-color: #95a5a6; color: white; font-weight: bold; padding: 5px;")
+        self.btn_show_table.setEnabled(False) # Sonuç oluşana kadar pasif
+        layout.addWidget(self.btn_show_table)
+        
         layout.addStretch()
         self.tabs.addTab(analysis_widget, "Analysis")
         
         # Signal Bağlantısı
         self.btn_run.clicked.connect(self.run_algorithm)
+        self.btn_show_table.clicked.connect(self.show_result_table)
         self.combo_algo.currentIndexChanged.connect(self.update_input_fields)
         
         # İlk açılışta güncelle
         self.update_input_fields()
+        
+        # Sonuç Saklama
+        self.last_result = None
+        self.last_algo_type = None
 
     def update_input_fields(self):
         """Seçili algoritmaya göre input alanlarını gizle/göster."""
@@ -269,6 +281,103 @@ class MainWindow(QMainWindow):
                 if item.node_id in node_colors:
                     color_code = node_colors[item.node_id]
                     item.setBrush(QBrush(QColor(color_code)))
+
+    def show_result_table(self):
+        """Sonuçları tablo olarak gösterir."""
+        from PyQt5.QtGui import QColor, QBrush # Safety import
+        if not self.last_result:
+            return
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"Result Table - {self.last_algo_type}")
+        dialog.resize(600, 400)
+        layout = QVBoxLayout(dialog)
+        
+        table = QTableWidget()
+        layout.addWidget(table)
+        
+        # Helper to get Node Name
+        from .visuals import NodeItem
+        def get_node_name_by_id(nid):
+            for item in self.canvas.scene.items():
+                if isinstance(item, NodeItem) and item.node_id == nid:
+                    return getattr(item, 'label_text', str(nid))
+            return str(nid)
+
+        if self.last_algo_type == "Path" or self.last_algo_type == "Traversal":
+            # List of Node IDs
+            headers = ["Order", "Node ID", "Name"]
+            if self.last_algo_type == "Path":
+                headers.append("Cumulative Cost (Approx)") # Basitlik için
+                
+            table.setColumnCount(len(headers))
+            table.setHorizontalHeaderLabels(headers)
+            table.setRowCount(len(self.last_result))
+            
+            for i, node_id in enumerate(self.last_result):
+                table.setItem(i, 0, QTableWidgetItem(str(i + 1)))
+                table.setItem(i, 1, QTableWidgetItem(str(node_id)))
+                table.setItem(i, 2, QTableWidgetItem(get_node_name_by_id(node_id)))
+                if self.last_algo_type == "Path":
+                    # Gerçek maliyeti graph üzerinden hesaplamak lazım ama şimdilik boş geçelim veya
+                    # run_algorithm içinde hesaplanıp buraya object olarak gelmeliydi.
+                    # İsteğe göre burası geliştirilebilir.
+                    table.setItem(i, 3, QTableWidgetItem("-"))
+
+        elif self.last_algo_type == "Coloring":
+            # Dict: {NodeID: HexCode}
+            headers = ["Node ID", "Name", "Color Code"]
+            table.setColumnCount(len(headers))
+            table.setHorizontalHeaderLabels(headers)
+            table.setRowCount(len(self.last_result))
+            
+            for i, (node_id, color) in enumerate(self.last_result.items()):
+                table.setItem(i, 0, QTableWidgetItem(str(node_id)))
+                table.setItem(i, 1, QTableWidgetItem(get_node_name_by_id(node_id)))
+                
+                item = QTableWidgetItem(str(color))
+                item.setBackground(QColor(color))
+                if color == "#000000": item.setForeground(QColor("white"))
+                table.setItem(i, 2, item)
+
+        elif self.last_algo_type == "Clustering":
+            # List of Lists: [[id, id], [id]]
+            headers = ["Cluster ID", "Node Count", "Nodes"]
+            table.setColumnCount(len(headers))
+            table.setHorizontalHeaderLabels(headers)
+            table.setRowCount(len(self.last_result))
+            
+            for i, component in enumerate(self.last_result):
+                table.setItem(i, 0, QTableWidgetItem(str(i + 1)))
+                table.setItem(i, 1, QTableWidgetItem(str(len(component))))
+                
+                names = [f"{nid} ({get_node_name_by_id(nid)})" for nid in component]
+                # Çok uzun olmasın, ilk 10 tanesini göster
+                content = ", ".join(names[:10])
+                if len(names) > 10: content += f" ... (+{len(names)-10} more)"
+                
+                table.setItem(i, 2, QTableWidgetItem(content))
+        
+        elif self.last_algo_type == "Centrality":
+             # List of Tuples: [(id, score), ...]
+            headers = ["Rank", "Node ID", "Name", "Score"]
+            table.setColumnCount(len(headers))
+            table.setHorizontalHeaderLabels(headers)
+            table.setRowCount(len(self.last_result))
+            
+            for i, (node_id, score) in enumerate(self.last_result):
+                table.setItem(i, 0, QTableWidgetItem(str(i + 1)))
+                table.setItem(i, 1, QTableWidgetItem(str(node_id)))
+                table.setItem(i, 2, QTableWidgetItem(get_node_name_by_id(node_id)))
+                table.setItem(i, 3, QTableWidgetItem(f"{score:.4f}"))
+
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        
+        btn_close = QPushButton("Close")
+        btn_close.clicked.connect(dialog.accept)
+        layout.addWidget(btn_close)
+        
+        dialog.exec_()
 
     def show_centrality_results(self, scores):
         """Merkezilik skorlarını bir tabloda gösterir."""
@@ -407,6 +516,10 @@ class MainWindow(QMainWindow):
                 
                 self.apply_coloring(colors)
                 self.lbl_result.setText(f"Coloring applied. Total colors: {len(set(colors.values()))}")
+                
+                self.last_result = colors
+                self.last_algo_type = "Coloring"
+                self.btn_show_table.setEnabled(True)
                 return
                 
             elif isinstance(algorithm, ConnectedComponentsAlgorithm):
@@ -423,6 +536,10 @@ class MainWindow(QMainWindow):
                         node_colors_map[node_id] = color
                 self.apply_coloring(node_colors_map)
                 self.lbl_result.setText(f"Components found: {len(components)}. Coloring applied.")
+                
+                self.last_result = components
+                self.last_algo_type = "Clustering"
+                self.btn_show_table.setEnabled(True)
                 return
             
             elif isinstance(algorithm, DegreeCentralityAlgorithm):
@@ -432,6 +549,10 @@ class MainWindow(QMainWindow):
                 
                 self.show_centrality_results(scores)
                 self.lbl_result.setText(f"Centrality scores calculated.")
+                
+                self.last_result = scores
+                self.last_algo_type = "Centrality"
+                self.btn_show_table.setEnabled(True)
                 return 
 
             # 2. Gezinti ve Yol Algoritmaları (Animasyonlu)
@@ -441,10 +562,20 @@ class MainWindow(QMainWindow):
             
             if not result_list:
                 self.lbl_result.setText(f"No path/result found.")
+                self.last_result = None
+                self.btn_show_table.setEnabled(False)
                 return
 
             result_str = " -> ".join(map(str, result_list))
             self.lbl_result.setText(f"{result_str}")
+            
+            # Sonucu sakla
+            self.last_result = result_list
+            if "BFS" in algo_name or "DFS" in algo_name:
+                self.last_algo_type = "Traversal"
+            else:
+                self.last_algo_type = "Path"
+            self.btn_show_table.setEnabled(True)
             
             # Animasyon isteniyor mu?
             if self.chk_animate.isChecked():
