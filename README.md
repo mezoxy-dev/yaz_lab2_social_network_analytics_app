@@ -1,57 +1,212 @@
-# Sosyal Ağ Analizi ve Görselleştirme Aracı
+# Sosyal Ağ Analizi Projesi Raporu
 
-Bu proje, sosyal ağları modellemek, görselleştirmek ve çeşitli graf teorisi algoritmaları ile analiz etmek için geliştirilmiş kapsamlı bir masaüstü uygulamasıdır. Python ve PyQt5 kullanılarak geliştirilmiştir.
+## 1. Proje Bilgileri
 
-## 🚀 Özellikler
+*   **Proje Adı:** Sosyal Ağ Analizi ve Görselleştirme Uygulaması
+*   **Ders:** Yazılım Laboratuvarı II
+*   **Tarih:** Ocak 2026
+*   **Ekip Üyeleri:**
+    *   Efe Süzel - 231307059
+    *   Mustafa Mehmet Aslandağ - 231307067
 
-Uygulama, graf verileri üzerinde aşağıdaki temel yetenekleri sunar:
+---
 
-### 1. Graf Görselleştirme ve Düzenleme
-- **İnteraktif Canvas:** Düğümleri (kullanıcılar) ve kenarları (ilişkiler) görsel olarak oluşturun.
-- **Sürükle & Bırak:** Düğümleri canvas üzerinde serbestçe hareket ettirin.
-- **Özelleştirilebilir Özellikler:** Her bir düğüm için *Aktiflik*, *Etkileşim*, *Bağlantı Sayısı* gibi sosyal metrikleri tanımlayın.
+## 2. Giriş ve Problem Tanımı
 
-### 2. Graf Algoritmaları
-Proje, ağ üzerindeki yolları ve yapıları analiz etmek için güçlü algoritmalar içerir:
+### Problemin Tanımı
+Sosyal ağlar (social networks), bireylerin veya organizasyonların birbirleriyle olan etkileşimlerini modelleyen karmaşık yapılardır. Bu yapıların büyüklüğü ve karmaşıklığı arttıkça, ağ üzerindeki en etkili kişileri bulmak, iki kişi arasındaki en kısa iletişim yolunu keşfetmek veya ağdaki toplulukları analiz etmek zorlaşmaktadır. Bu analizlerin manuel olarak yapılması imkansızdır; bu nedenle görselleştirme ve algoritmik analiz araçlarına ihtiyaç duyulmaktadır.
 
-- **Dijkstra Algoritması:** Düğümler arasındaki en kısa yolu kenar ağırlıklarına göre hesaplar.
-- **A* (A-Star) Algoritması:** Sosyal metrikleri (benzerlik, etkileşim vb.) sezgisel (heuristic) olarak kullanarak hedefe en uygun yolu bulur.
-- **BFS (Genişlik Öncelikli Arama):** Grafı katman katman gezerek ağın yapısını keşfeder.
-- **DFS (Derinlik Öncelikli Arama):** Grafın derinliklerine inerek uç noktaları keşfeder.
+### Projenin Amacı
+Bu projenin temel amacı, sosyal ağ verilerini interaktif bir şekilde görselleştiren ve üzerinde çeşitli graf teorisi algoritmalarını koşturan masaüstü tabanlı bir yazılım geliştirmektir. Proje kapsamında; kullanıcıların (düğümlerin) özellikleri (aktiflik, etkileşim vb.) dikkate alınarak ağ analizi yapılması ve sonuçların kullanıcıya anlaşılır bir arayüzle sunulması hedeflenmiştir.
 
-### 3. Ağ Analizi
-Ağın topolojisi hakkında bilgi edinmek için analiz araçları:
-- **Degree Centrality (Derece Merkeziliği):** Ağdaki en popüler veya en etkili düğümleri (kullanıcıları) belirler.
-- **Connected Components (Bağlı Bileşenler):** Ağ içindeki ayrık toplulukları ve grupları tespit eder.
+---
 
-## 🛠️ Kurulum
+## 3. Algoritmalar
 
-Projeyi yerel ortamınızda çalıştırmak için aşağıdaki adımları izleyin:
+Projede kullanılan temel algoritmalar aşağıda detaylandırılmıştır.
 
-1. **Gereksinimleri Yükleyin:**
-   Python kurulu olduğundan emin olun ve gerekli kütüphaneleri yükleyin:
-   ```bash
-   pip install -r requirements.txt
-   ```
+### 3.1. Breadth-First Search (BFS) - Genişlik Öncelikli Arama
 
-2. **Uygulamayı Başlatın:**
-   Ana dizindeki `main.py` dosyasını çalıştırarak arayüzü başlatın:
-   ```bash
-   python main.py
-   ```
+**Çalışma Mantığı:**
+BFS, bir başlangıç düğümünden başlayarak grafı katman katman gezen bir algoritmadır. Önce başlangıç düğümünün tüm komşularını, sonra o komşuların komşularını ziyaret eder. Veri yapısı olarak "Kuyruk" (Queue - FIFO) kullanır.
 
-## 📋 Gereksinimler
+**Karmaşıklık Analizi:**
+*   Zaman Karmaşıklığı: **O(V + E)** (V: Düğüm Sayısı, E: Kenar Sayısı)
+*   Alan Karmaşıklığı: **O(V)**
 
-Proje aşağıdaki temel kütüphaneleri kullanır (detaylar `requirements.txt` dosyasındadır):
-- **Python 3.x**
-- **PyQt5** (Kullanıcı Arayüzü)
-- **NetworkX** (Graf Veri Yapısı ve İşlemleri)
-- **Pandas** (Veri İşleme)
-- **Matplotlib** (Görselleştirme Altyapısı)
+**Akış Diyagramı:**
+```mermaid
+flowchart TD
+    A[Başla] --> B[Başlangıç Düğümünü Kuyruğa Ekle]
+    B --> C{Kuyruk Boş mu?}
+    C -- Evet --> H[Bitiş]
+    C -- Hayır --> D[Kuyruktan Düğüm Çıkar (u)]
+    D --> E[u Ziyaret Edildi İşaretle]
+    E --> F[u'nun Ziyaret Edilmemiş Komşularını Bul]
+    F --> G[Komşuları Kuyruğa Ekle]
+    G --> C
+```
 
-## 📁 Proje Yapısı
+### 3.2. Depth-First Search (DFS) - Derinlik Öncelikli Arama
 
-- `src/algorithms/`: BFS, DFS, Dijkstra, A* ve analiz algoritmalarının implementasyonları.
-- `src/ui/`: Arayüz bileşenleri, canvas çizimi ve diyalog pencereleri.
-- `src/model/`: Veri modelleri (Node, Edge, Graph).
-- `data/`: Örnek veri setleri ve kaydedilen graflar.
+**Çalışma Mantığı:**
+DFS, bir yoldan gidebildiği kadar derine inen ve son noktaya ulaştığında geri dönen (backtracking) bir algoritmadır. Veri yapısı olarak "Yığın" (Stack - LIFO) veya özyineleme (recursion) kullanır.
+
+**Karmaşıklık Analizi:**
+*   Zaman Karmaşıklığı: **O(V + E)**
+*   Alan Karmaşıklığı: **O(V)**
+
+**Akış Diyagramı:**
+```mermaid
+flowchart TD
+    A[Başla] --> B[Başlangıç Düğümünü Yığına Ekle]
+    B --> C{Yığın Boş mu?}
+    C -- Evet --> H[Bitiş]
+    C -- Hayır --> D[Yığından Düğüm Çıkar (u)]
+    D --> E{Ziyaret Edildi mi?}
+    E -- Evet --> C
+    E -- Hayır --> F[u'yu Ziyaret Et]
+    F --> G[Komşuları Yığına Ekle]
+    G --> C
+```
+
+### 3.3. Dijkstra En Kısa Yol Algoritması
+
+**Çalışma Mantığı:**
+Ağırlıklı graflarda başlangıç düğümünden diğer tüm düğümlere olan en kısa yolu bulur. "Açgözlü" (Greedy) bir yaklaşım sergiler ve her adımda ulaşılması en az maliyetli düğümü seçer. Projede ağırlık (weight), düğümler arasındaki sosyal benzerlik özelliklerine göre `1 + Feature_Distance` formülüyle hesaplanmıştır.
+
+**Karmaşıklık Analizi:**
+*   Zaman Karmaşıklığı (Priority Queue ile): **O(E + V log V)**
+
+**Akış Diyagramı:**
+```mermaid
+flowchart TD
+    A[Başla] --> B[Mesafeleri Sonsuz Yap, Başlangıç=0]
+    B --> C[Öncelik Kuyruğuna (0, Başlangıç) Ekle]
+    C --> D{Kuyruk Boş mu?}
+    D -- Evet --> H[Bitiş]
+    D -- Hayır --> E[En Küçük Mesafeli Düğümü (u) Çek]
+    E --> F[Komşuları (v) Gez]
+    F --> G{Mesafe(u) + Weight(u,v) < Mesafe(v)?}
+    G -- Evet --> I[Mesafe(v) Güncelle, Kuyruğa Ekle]
+    G -- Hayır --> F
+    I --> F
+    F --> D
+```
+
+### 3.4. A* (A-Star) Algoritması
+
+**Çalışma Mantığı:**
+Dijkstra'nın geliştirilmiş halidir. Hedefe ne kadar yaklaşıldığını tahmin eden bir `h(n)` (heuristic) fonksiyonu kullanır. Projede heuristic olarak "Özellik Uzayındaki Öklid Mesafesi" kullanılmıştır.
+*   `f(n) = g(n) + h(n)` (Toplam Tahmini Maliyet = Gerçek Maliyet + Sezgisel Maliyet)
+
+**Karmaşıklık Analizi:**
+*   Zaman Karmaşıklığı: Heuristic fonksiyonuna bağlı olarak değişir, en kötü durumda **O(E)**.
+
+---
+
+## 4. Yazılım Mimarisi ve Sınıf Yapısı
+
+Proje, **Model-View-Controller (MVC)** benzeri bir yaklaşımla modüllere ayrılmıştır.
+
+### 4.1. Modül Yapısı
+1.  **src.model:** Veri yapılarını (`Node`, `Edge`, `Graph`) barındırır.
+2.  **src.algorithms:** Mantıksal hesaplamaları (`BFS`, `Dijkstra` vb.) içerir.
+3.  **src.ui:** Kullanıcı arayüzü (`MainWindow`, `Canvas`) işlemlerini yönetir.
+
+### 4.2. Sınıf Diyagramı (Mermaid)
+
+```mermaid
+classDiagram
+    class Node {
+        +int id
+        +float aktiflik
+        +float etkilesim
+        +float baglanti_sayisi
+        +List neighbors
+        +get_coordinates()
+    }
+
+    class Edge {
+        +Node source
+        +Node target
+        +float weight
+        +float similarity
+        +calculate_weight()
+    }
+
+    class Graph {
+        +dict nodes
+        +list edges
+        +add_node()
+        +add_edge()
+        +get_neighbors()
+    }
+
+    class Algorithm {
+        <<interface>>
+        +execute(graph, start, end)
+    }
+
+    class DijkstraAlgorithm {
+        +execute()
+    }
+    class AStarAlgorithm {
+        +heuristic()
+        +execute()
+    }
+    class BFSAlgorithm {
+        +execute()
+    }
+    class MainWindow {
+        +Canvas canvas
+        +setup_ui()
+    }
+
+    Graph "1" *-- "many" Node : contains
+    Graph "1" *-- "many" Edge : contains
+    Edge "1" --> "2" Node : links
+    MainWindow --> Graph : manages
+    Algorithm <|-- DijkstraAlgorithm
+    Algorithm <|-- AStarAlgorithm
+    Algorithm <|-- BFSAlgorithm
+    MainWindow ..> Algorithm : uses
+```
+
+---
+
+## 5. Uygulama Açıklamaları ve Test Senaryoları
+
+### 5.1. Arayüz ve Özellikler
+Uygulama açıldığında boş bir canvas gelir. Kullanıcı sol panelden düğüm ekleyebilir, sağ tık menüsü ile düğümleri silebilir veya özelliklerini değiştirebilir. "Analiz Algoritmaları" menüsünden istenilen algoritma seçilip çalıştırıldığında sonuçlar görsel olarak (renklendirilmiş yollar) sunulur.
+
+### 5.2. Test Senaryoları
+
+| Senaryo ID | Açıklama | Beklenen Sonuç | Sonuç |
+| :--- | :--- | :--- | :--- |
+| **TS-01** | Graf Yükleme | `data` klasöründeki CSV/XML dosyasının hatasız yüklenmesi. | Başarılı |
+| **TS-02** | Düğüm Silme | Seçilen düğümün ve bağlı tüm kenarların silinmesi. | Başarılı |
+| **TS-03** | Dijkstra Testi | Ağırlığı yüksek kenarlar yerine daha düşük maliyetli uzun yolun seçilmesi. | Başarılı |
+| **TS-04** | A* Hız Testi | Dijkstra'ya göre daha az düğüm ziyaret ederek hedefe ulaşması. | Başarılı |
+| **TS-05** | Ayrık Graf | Bağlantısı olmayan iki düğüm arasında yol arandığında "Yol Bulunamadı" uyarısı. | Başarılı |
+
+*(Not: Raporun bu kısmına uygulamadan alınmış ekran görüntülerini ekleyebilirsiniz.)*
+* Örnek: `![En Kısa Yol Görseli](screenshots/shortest_path.png)`
+
+---
+
+## 6. Sonuç ve Tartışma
+
+### 6.1. Başarılar
+*   Karmaşık sosyal ağ verilerinin Python ve PyQt5 ile performanslı bir şekilde görselleştirilmesi sağlandı.
+*   Nesne tabanlı mimari sayesinde yeni algoritmaların (örneğin Betweenness Centrality) sisteme eklenmesi çok kolay hale getirildi.
+*   Kullanıcı deneyimi (UX), sürükle-bırak özellikleri ve anlık geri bildirimlerle zenginleştirildi.
+
+### 6.2. Sınırlılıklar
+*   **Büyük Veri:** 10.000+ düğüm içeren çok büyük ağlarda, görselleştirme kütüphanesinden kaynaklı performans düşüşleri (FPS kaybı) yaşanabilmektedir.
+*   **3D Görselleştirme:** Şu an sadece 2D düzlemde görselleştirme yapılmaktadır.
+
+### 6.3. Gelecek Geliştirmeler
+*   Uygulamanın Web tabanlı (React/D3.js) bir versiyonunun geliştirilmesi.
+*   Büyük veri setleri için GPU hızlandırmalı çizim kütüphanelerinin (OpenGL) entegrasyonu.
+*   Veri tabanı entegrasyonu ile (PostgreSQL/Neo4j) verilerin kalıcı ve ilişkisel olarak saklanması.
