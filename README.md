@@ -202,9 +202,6 @@ Uygulama açıldığında boş bir canvas gelir. Kullanıcı sol panelden düğ�
 | **TS-04** | A* Hız Testi | Dijkstra'ya göre daha az düğüm ziyaret ederek hedefe ulaşması. | Başarılı |
 | **TS-05** | Ayrık Graf | Bağlantısı olmayan iki düğüm arasında yol arandığında "Yol Bulunamadı" uyarısı. | Başarılı |
 
-*(Not: Raporun bu kısmına uygulamadan alınmış ekran görüntülerini ekleyebilirsiniz.)*
-* Örnek: `![En Kısa Yol Görseli](screenshots/shortest_path.png)`
-
 **Uygulama Ekran Görüntüleri:**
 
 ![Uygulama Görüntüsü 1](assets/1_photo.jpeg)
