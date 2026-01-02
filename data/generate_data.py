@@ -2,63 +2,67 @@ import csv
 import random
 import os
 
-def generate_social_network(num_nodes=50, max_neighbors=5, filename="large_social_network.csv"):
+def generate_social_network(num_nodes=50, filename="medium_social_network.csv"):
     nodes = []
     
-    # 1. Generate Nodes
+    # 1. Düğümleri Oluştur
     for i in range(1, num_nodes + 1):
         node = {
             'id': i,
-            'activity': round(random.uniform(0, 100), 1),
-            'interaction': round(random.uniform(0, 100), 1),
+            'aktiflik': round(random.uniform(0.1, 1.0), 2),
+            'etkilesim': random.randint(1, 100),
+            'baglanti_sayisi': 0, # Sonradan güncellenecek
             'neighbors': set()
         }
         nodes.append(node)
-
-    # 2. Generate Edges (Randomly)
+    
+    # 2. Bağlantıları Oluştur (Rastgele)
+    # Her düğümün en az 2, en çok 6 komşusu olsun (Small World benzeri)
     for node in nodes:
-        # Determine number of neighbors for this node (random)
-        num_neighbors = random.randint(1, max_neighbors)
+        num_links = random.randint(2, 6)
+        current_neighbors = len(node['neighbors'])
         
-        # Try to connect to random other nodes
-        potential_neighbors = [n for n in nodes if n['id'] != node['id']]
+        needed = num_links - current_neighbors
+        if needed <= 0: continue
         
-        # Shuffle to pick random ones
-        random.shuffle(potential_neighbors)
+        # Kendisi ve zaten komşu oldukları hariç rastgele seç
+        potential_targets = [n for n in nodes if n['id'] != node['id'] and n['id'] not in node['neighbors']]
         
-        for potential in potential_neighbors:
-            if len(node['neighbors']) >= num_neighbors:
-                break
-                
-            # Add edge (undirected for simplicity in generation, though logic allows directed)
-            # To make it undirected consistent:
-            if potential['id'] not in node['neighbors']:
-                node['neighbors'].add(potential['id'])
-                potential['neighbors'].add(node['id'])
-
-    # 3. Write to CSV
+        if not potential_targets: continue
+        
+        targets = random.sample(potential_targets, min(needed, len(potential_targets)))
+        
+        for target in targets:
+            node['neighbors'].add(target['id'])
+            target['neighbors'].add(node['id']) # Yönsüz
+            
+    # 3. Bağlantı Sayısı Özelliğini Güncelle ve CSV Yaz
     # Format: DugumId, Ozellik_I (Aktiflik), Ozellik_II (Etkileşim), Ozellik_III (Bagl. Sayisi), Komsular
+    
+    header = ['DugumId', 'Ozellik_I (Aktiflik)', 'Ozellik_II (Etkileşim)', 'Ozellik_III (Bagl. Sayisi)', 'Komsular']
     
     file_path = os.path.join(os.path.dirname(__file__), filename)
     
     with open(file_path, 'w', newline='', encoding='utf-8') as f:
-        fieldnames = ['DugumId', 'Ozellik_I (Aktiflik)', 'Ozellik_II (Etkileşim)', 'Ozellik_III (Bagl. Sayisi)', 'Komsular']
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
+        writer = csv.writer(f)
+        writer.writerow(header)
         
         for node in nodes:
-            neighbors_list = list(node['neighbors'])
-            neighbors_str = ",".join(map(str, neighbors_list))
+            neighbor_list = sorted(list(node['neighbors']))
+            node['baglanti_sayisi'] = len(neighbor_list) # Özellik olarak işle
             
-            writer.writerow({
-                'DugumId': node['id'],
-                'Ozellik_I (Aktiflik)': node['activity'],
-                'Ozellik_II (Etkileşim)': node['interaction'],
-                'Ozellik_III (Bagl. Sayisi)': len(neighbors_list),
-                'Komsular': neighbors_str
-            })
+            neighbors_str = ",".join(map(str, neighbor_list))
             
-    print(f"Generated {filename} with {num_nodes} nodes at {file_path}")
+            writer.writerow([
+                node['id'],
+                node['aktiflik'],
+                node['etkilesim'],
+                node['baglanti_sayisi'],
+                neighbors_str
+            ])
+            
+    print(f"Data generated at: {file_path}")
 
 if __name__ == "__main__":
-    generate_social_network(num_nodes=50, max_neighbors=8, filename="large_social_network.csv")
+    # generate_social_network(75, "medium_social_network.csv")
+    generate_social_network(15, "small_social_network.csv")

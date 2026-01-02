@@ -4,11 +4,12 @@ from PyQt5.QtGui import QPen, QBrush, QColor, QPainter, QPolygonF, QPainterPath,
 import math
 
 class NodeItem(QGraphicsEllipseItem):
-    def __init__(self, node_id, x, y, radius=20, label=""):
+    def __init__(self, node_id, x, y, radius=20, label="", properties=None):
         super().__init__(-radius, -radius, 2 * radius, 2 * radius)
         self.node_id = node_id
         self.label = label
         self.radius = radius
+        self.properties = properties if properties else {}
         
         # Görsel ayarlar
         self.setPos(x, y)
@@ -73,10 +74,29 @@ class NodeItem(QGraphicsEllipseItem):
 
     def add_edge(self, edge):
         self.edges.append(edge)
+        # Bağlantı eklendiğinde sayıyı artır
+        current_count = float(self.properties.get('baglanti_sayisi', 0))
+        self.properties['baglanti_sayisi'] = current_count + 1
+        
+        # Diğer kenarların ağırlıklarını güncelle
+        self.update_connected_edges()
 
     def remove_edge(self, edge):
         if edge in self.edges:
             self.edges.remove(edge)
+            # Bağlantı silindiğinde sayıyı azalt
+            current_count = float(self.properties.get('baglanti_sayisi', 0))
+            if current_count > 0:
+                self.properties['baglanti_sayisi'] = current_count - 1
+            
+            # Bu düğüme bağlı DİĞER kenarların ağırlıklarını güncelle
+            # Çünkü bu düğümün 'baglanti_sayisi' değişti, dolayısıyla diğer kenarların maliyeti de değişmeli!
+            self.update_connected_edges()
+
+    def update_connected_edges(self):
+        """Bu düğüme bağlı tüm kenarların ağırlığını yeniden hesaplar."""
+        for edge in self.edges:
+            edge.recalculate_weight()
 
 class EdgeItem(QGraphicsPathItem): # LineItem yerine PathItem kullanıyoruz
     def __init__(self, source_node, target_node, weight=1.0):
@@ -98,6 +118,20 @@ class EdgeItem(QGraphicsPathItem): # LineItem yerine PathItem kullanıyoruz
         self.target.add_edge(self)
         
         self.adjust()
+
+    def recalculate_weight(self):
+        """Node özelliklerine göre ağırlığı günceller (Model'den formülü çeker)."""
+        from src.model.edge import Edge # Circular import kaçınmak için burada
+        
+        if self.source and self.target:
+            p_source = self.source.properties
+            p_target = self.target.properties
+            
+            # Model sınıfındaki statik metodu kullan
+            new_weight, _ = Edge.calculate_weight(p_source, p_target)
+            
+            self.weight = new_weight
+            self.update() # Görsel güncelle (draw_weight çalışacak)
 
     def adjust(self):
         if not self.source or not self.target:
@@ -199,14 +233,34 @@ class EdgeItem(QGraphicsPathItem): # LineItem yerine PathItem kullanıyoruz
         
         # Yolun tam ortasına yaz (%50)
         center_point = path.pointAtPercent(0.5)
-        
         text = str(self.weight)
-        rect = QRectF(center_point.x() - 15, center_point.y() - 10, 30, 20)
         
-        # Arkaplan kutusu (okunabilirlik için)
-        painter.setBrush(QBrush(QColor(255, 255, 255, 200))) 
-        painter.setPen(Qt.NoPen)
-        painter.drawRect(rect)
+        # Font Ayarları (Daha Okunaklı)
+        font = painter.font()
+        font.setPointSize(10)
+        font.setBold(True)
+        painter.setFont(font)
         
+        # Metin Boyutunu Hesapla
+        fm = painter.fontMetrics()
+        text_width = fm.width(text)
+        text_height = fm.height()
+        
+        # Arkaplan Kutusunu Metne Göre Ayarla (+Padding)
+        padding = 10
+        rect_width = text_width + padding
+        rect_height = text_height + 4
+        
+        # Kutuyu ortala
+        rect = QRectF(center_point.x() - rect_width / 2, 
+                      center_point.y() - rect_height / 2, 
+                      rect_width, rect_height)
+        
+        # Arkaplan kutusu (Beyaz, görünür çerçeve)
+        painter.setBrush(QBrush(QColor(255, 255, 255, 255))) # Tam opak beyaz
+        painter.setPen(QPen(Qt.black, 1)) # İnce siyah çerçeve
+        painter.drawRoundedRect(rect, 5, 5) # Yuvarlatılmış köşeler
+        
+        # Metni Çiz
         painter.setPen(Qt.black)
         painter.drawText(rect, Qt.AlignCenter, text)

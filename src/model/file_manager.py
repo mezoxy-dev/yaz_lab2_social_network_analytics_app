@@ -44,14 +44,18 @@ class CSVFileManager(IFileManager):
                         node_id = int(row['DugumId'])
                         
                         # ozellikleri hazırla
+                        # özellikleri hazırla
                         props = {
-                            'aktiflik': float(row['Ozellik_I (Aktiflik)']),
-                            'etkilesim': float(row['Ozellik_II (Etkileşim)']),
-                            'baglanti_sayisi': float(row['Ozellik_III (Bagl. Sayisi)'])
+                            'aktiflik': float(row.get('Ozellik_I (Aktiflik)', 0)),
+                            'etkilesim': float(row.get('Ozellik_II (Etkileşim)', 0)),
+                            'baglanti_sayisi': float(row.get('Ozellik_III (Bagl. Sayisi)', 0))
                         }
                         
+                        # İsmi al (Yoksa opsiyonel)
+                        name = row.get('Isim')
+                        
                         # düğümü oluştur ve ekle
-                        new_node = Node(node_id, properties=props)
+                        new_node = Node(node_id, properties=props, name=name)
                         graph.add_node(new_node)
                         
                         # ham veriyi 2. tur için sakla
@@ -92,7 +96,7 @@ class CSVFileManager(IFileManager):
         """
         try:
             with open(file_path, mode='w', newline='', encoding='utf-8') as f:
-                fieldnames = ['DugumId', 'Ozellik_I (Aktiflik)', 'Ozellik_II (Etkileşim)', 'Ozellik_III (Bagl. Sayisi)', 'Komsular']
+                fieldnames = ['DugumId', 'Isim', 'Ozellik_I (Aktiflik)', 'Ozellik_II (Etkileşim)', 'Ozellik_III (Bagl. Sayisi)', 'Komsular']
                 writer = csv.DictWriter(f, fieldnames=fieldnames)
                 
                 writer.writeheader()
@@ -105,6 +109,7 @@ class CSVFileManager(IFileManager):
                     
                     writer.writerow({
                         'DugumId': node_id,
+                        'Isim': node.name,
                         'Ozellik_I (Aktiflik)': node.aktiflik,
                         'Ozellik_II (Etkileşim)': node.etkilesim,
                         'Ozellik_III (Bagl. Sayisi)': node.baglanti_sayisi,

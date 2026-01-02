@@ -11,6 +11,8 @@ class Graph:
         self.edges = [] 
         # Algoritmalar için komşuluk listesi {id: [id1, id2]}
         self.adjacency_list = {} 
+        # Kenar hızlı erişimi için {(u,v): Edge}
+        self.edge_map = {}
 
     def add_node(self, node):
         """Graf yapısına tek bir düğüm ekler."""
@@ -46,12 +48,22 @@ class Graph:
         # Dugum nesnelerinin kendi icindeki listelerini de guncelle
         source_node.neighbors.append(target_id)
         target_node.neighbors.append(source_id)
+        
+        # Hızlı erişim için map'e ekle
+        key = tuple(sorted((source_id, target_id)))
+        self.edge_map[key] = new_edge
+
+    def get_edge(self, u_id, v_id):
+        """İki düğüm arasındaki kenar nesnesini O(1) sürede döndürür."""
+        key = tuple(sorted((u_id, v_id)))
+        return self.edge_map.get(key)
 
     def clear(self):
         """Grafı temizler (Yeni dosya için)."""
         self.nodes.clear()
         self.edges.clear()
         self.adjacency_list.clear()
+        self.edge_map.clear()
 
     def get_neighbors(self, node_id):
         """Algoritmalar için komşu listesini döndürür."""

@@ -1,48 +1,56 @@
 import random
 
 class Node:
-    def __init__(self, node_id, properties=None, x=None, y=None):
+    def __init__(self, node_id: int, properties: dict = None, x: int = None, y: int = None, name: str = None):
         """
-        node_id: dugumun benzersiz kimligi (orn: 1, 'A')
-        properties: sözlük yapisinda özellikler {'aktiflik': 0.8, 'etkilesim': 12, ...}
-        x, y: Canvas üzerindeki koordinatlar
+        Sosyal Ağ Analizi için Düğüm (Node) Sınıfı.
+        
+        Args:
+            node_id (int): Düğümün benzersiz kimliği.
+            properties (dict): 'aktiflik', 'etkilesim', 'baglanti_sayisi' özelliklerini içeren sözlük.
+            x (int, optional): Canvas üzerindeki X koordinatı. 
+            y (int, optional): Canvas üzerindeki Y koordinatı.
+            name (str, optional): Düğümün görünen ismi.
         """
         self.id = node_id
+        self.name = name if name else str(node_id) # İsim yoksa ID kullan
         
-        # Koordinatlar verilmemişse rastgele ata (Canvas boyutu varsayılan 800x600 gibi)
+        # Koordinatlar verilmemişse rastgele ata
         self.x = x if x is not None else random.randint(50, 750)
         self.y = y if y is not None else random.randint(50, 550)
         
-        # CSV'den gelen özelliklerin atanması
-        # Eğer özellik gelmezse varsayılan 0 atanır (Hata almamak için)
+        # Özelliklerin güvenli bir şekilde atanması
         props = properties if properties else {}
-        self.aktiflik = float(props.get('aktiflik', 0.0))       # Özellik I
-        self.etkilesim = float(props.get('etkilesim', 0))       # Özellik II
-        self.baglanti_sayisi = float(props.get('baglanti_sayisi', 0)) # Özellik III
+        try:
+            self.aktiflik = float(props.get('aktiflik', 0.0))
+            self.etkilesim = float(props.get('etkilesim', 0.0))
+            self.baglanti_sayisi = float(props.get('baglanti_sayisi', 0.0))
+        except (ValueError, TypeError):
+            # Hatalı veri durumunda varsayılan değerler
+            self.aktiflik = 0.0
+            self.etkilesim = 0.0
+            self.baglanti_sayisi = 0.0
         
         # Algoritmalar için gerekli alanlar
-        self.color = "gray" # Varsayılan renk (Welsh-Powell için değişecek) 
-        self.neighbors = [] # Komşu düğüm ID'leri listesi
-        
-        # Görselleştirme için yarıçap (Sabit olabilir)
-        self.radius = 20 
+        self.color = "gray" # Görselleştirme rengi
+        self.neighbors = [] # Komşu düğüm ID'leri
+        self.radius = 20 # Çizim yarıçapı
 
     def get_coordinates(self):
-        """Çizim için koordinatları dondurur."""
+        """(x, y) demeti döndürür."""
         return (self.x, self.y)
 
     def set_color(self, new_color):
-        """Algoritma sonrası renk degisimi icin."""
         self.color = new_color
 
     def __repr__(self):
-        """Debug yaparken konsolda nesneyi okunaklı görmek için."""
-        return f"Node(ID={self.id}, A={self.aktiflik}, E={self.etkilesim}, Renk={self.color})"
+        return f"Node(ID={self.id}, A={self.aktiflik}, E={self.etkilesim}, Neighbors={len(self.neighbors)})"
 
     def to_dict(self):
         """Dugumu JSON veya CSV'ye kaydetmek icin sözlüğe cevirir."""
         return {
             "id": self.id,
+            "name": self.name,
             "x": self.x,
             "y": self.y,
             "aktiflik": self.aktiflik,
