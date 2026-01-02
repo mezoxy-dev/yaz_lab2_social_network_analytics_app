@@ -8,6 +8,7 @@
 *   **Ekip Üyeleri:**
     *   Efe Süzel - 231307059
     *   Mustafa Mehmet Aslandağ - 231307067
+    *   Grup No - 43
 
 ### Kurulum ve Çalıştırma
 
