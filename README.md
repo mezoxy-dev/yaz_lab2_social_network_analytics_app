@@ -9,6 +9,18 @@
     *   Efe Süzel - 231307059
     *   Mustafa Mehmet Aslandağ - 231307067
 
+### Kurulum ve Çalıştırma
+
+**Gerekli Kütüphaneler:**
+```bash
+pip install -r requirements.txt
+```
+
+**Uygulamayı Çalıştırma:**
+```bash
+python main.py
+```
+
 ---
 
 ## 2. Giriş ve Problem Tanımı
@@ -192,6 +204,16 @@ Uygulama açıldığında boş bir canvas gelir. Kullanıcı sol panelden düğ�
 
 *(Not: Raporun bu kısmına uygulamadan alınmış ekran görüntülerini ekleyebilirsiniz.)*
 * Örnek: `![En Kısa Yol Görseli](screenshots/shortest_path.png)`
+
+**Uygulama Ekran Görüntüleri:**
+
+![Uygulama Görüntüsü 1](assets/1_photo.jpeg)
+![Uygulama Görüntüsü 2](assets/2_photo.jpeg)
+![Uygulama Görüntüsü 3](assets/3_photo.jpeg)
+![Uygulama Görüntüsü 4](assets/4_photo.jpeg)
+![Uygulama Görüntüsü 5](assets/5_photo.jpeg)
+
+
 
 ---
 
