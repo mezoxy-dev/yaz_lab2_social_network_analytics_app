@@ -37,13 +37,13 @@ BFS, bir başlangıç düğümünden başlayarak grafı katman katman gezen bir 
 **Akış Diyagramı:**
 ```mermaid
 flowchart TD
-    A[Başla] --> B[Başlangıç Düğümünü Kuyruğa Ekle]
-    B --> C{Kuyruk Boş mu?}
-    C -- Evet --> H[Bitiş]
-    C -- Hayır --> D[Kuyruktan Düğüm Çıkar (u)]
-    D --> E[u Ziyaret Edildi İşaretle]
-    E --> F[u'nun Ziyaret Edilmemiş Komşularını Bul]
-    F --> G[Komşuları Kuyruğa Ekle]
+    A["Başla"] --> B["Başlangıç Düğümünü Kuyruğa Ekle"]
+    B --> C{"Kuyruk Boş mu?"}
+    C -- Evet --> H["Bitiş"]
+    C -- Hayır --> D["Kuyruktan Düğüm Çıkar (u)"]
+    D --> E["u Ziyaret Edildi İşaretle"]
+    E --> F["u'nun Ziyaret Edilmemiş Komşularını Bul"]
+    F --> G["Komşuları Kuyruğa Ekle"]
     G --> C
 ```
 
@@ -59,14 +59,14 @@ DFS, bir yoldan gidebildiği kadar derine inen ve son noktaya ulaştığında ge
 **Akış Diyagramı:**
 ```mermaid
 flowchart TD
-    A[Başla] --> B[Başlangıç Düğümünü Yığına Ekle]
-    B --> C{Yığın Boş mu?}
-    C -- Evet --> H[Bitiş]
-    C -- Hayır --> D[Yığından Düğüm Çıkar (u)]
-    D --> E{Ziyaret Edildi mi?}
+    A["Başla"] --> B["Başlangıç Düğümünü Yığına Ekle"]
+    B --> C{"Yığın Boş mu?"}
+    C -- Evet --> H["Bitiş"]
+    C -- Hayır --> D["Yığından Düğüm Çıkar (u)"]
+    D --> E{"Ziyaret Edildi mi?"}
     E -- Evet --> C
-    E -- Hayır --> F[u'yu Ziyaret Et]
-    F --> G[Komşuları Yığına Ekle]
+    E -- Hayır --> F["u'yu Ziyaret Et"]
+    F --> G["Komşuları Yığına Ekle"]
     G --> C
 ```
 
@@ -81,14 +81,14 @@ Ağırlıklı graflarda başlangıç düğümünden diğer tüm düğümlere ola
 **Akış Diyagramı:**
 ```mermaid
 flowchart TD
-    A[Başla] --> B[Mesafeleri Sonsuz Yap, Başlangıç=0]
-    B --> C[Öncelik Kuyruğuna (0, Başlangıç) Ekle]
-    C --> D{Kuyruk Boş mu?}
-    D -- Evet --> H[Bitiş]
-    D -- Hayır --> E[En Küçük Mesafeli Düğümü (u) Çek]
-    E --> F[Komşuları (v) Gez]
-    F --> G{Mesafe(u) + Weight(u,v) < Mesafe(v)?}
-    G -- Evet --> I[Mesafe(v) Güncelle, Kuyruğa Ekle]
+    A["Başla"] --> B["Mesafeleri Sonsuz Yap, Başlangıç=0"]
+    B --> C["Öncelik Kuyruğuna (0, Başlangıç) Ekle"]
+    C --> D{"Kuyruk Boş mu?"}
+    D -- Evet --> H["Bitiş"]
+    D -- Hayır --> E["En Küçük Mesafeli Düğümü (u) Çek"]
+    E --> F["Komşuları (v) Gez"]
+    F --> G{"Mesafe(u) + Weight(u,v) < Mesafe(v)?"}
+    G -- Evet --> I["Mesafe(v) Güncelle, Kuyruğa Ekle"]
     G -- Hayır --> F
     I --> F
     F --> D
