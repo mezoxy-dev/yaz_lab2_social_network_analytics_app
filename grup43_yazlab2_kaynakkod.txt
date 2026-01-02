@@ -1,0 +1,2437 @@
+from abc import ABC, abstractmethod
+
+class Algorithm(ABC):
+    """
+    Algoritmalar için temel sınıf.
+    """
+
+    @abstractmethod
+    def get_name(self):
+        """Algoritmanın ekranda görünecek adını döndürür (Örn: 'BFS')."""
+        pass
+
+    @abstractmethod
+    def execute(self, graph, start_node_id=None, end_node_id=None):
+        """
+        Algoritmanın ana çalışma mantığı.
+        Args:
+            graph: Üzerinde çalışılacak Graph nesnesi
+            start_node_id: Başlangıç düğümü (Opsiyonel)
+            end_node_id: Bitiş düğümü (Opsiyonel - Dijkstra için)
+        Returns:
+            list: Ziyaret edilen düğümlerin veya yolun listesi
+        """
+        pass
+
+
+from src.algorithms.algorithm_base import Algorithm
+import random
+
+class DegreeCentralityAlgorithm(Algorithm):
+    def get_name(self):
+        return "Degree Centrality (En Etkili Düğümler)"
+
+    def execute(self, graph, start_node_id=None, end_node_id=None):
+        """
+        Düğüm derecelerini (komşu sayılarını) hesaplar ve sıralar.
+        Döküman Madde 3.2: En yüksek dereceli 5 düğümün gösterilmesi. 
+        """
+        # Liste: (Node ID, Derece Sayısı)
+        centrality_scores = []
+        
+        for node_id, node in graph.nodes.items():
+            degree = len(graph.get_neighbors(node_id))
+            centrality_scores.append((node_id, degree))
+        
+        # Dereceye göre tersten (büyükten küçüğe) sırala
+        centrality_scores.sort(key=lambda x: x[1], reverse=True)
+        
+        # Tüm listeyi döndür (UI tarafında ilk 5'i alacağız)
+        return centrality_scores
+
+
+
+class ConnectedComponentsAlgorithm(Algorithm):
+    def get_name(self):
+        return "Bağlı Bileşenler (Topluluk Analizi)"
+
+    def execute(self, graph, start_node_id=None, end_node_id=None):
+        """
+        Graftaki tüm ayrık toplulukları (Connected Components) bulur.
+        Return: [[1, 2, 3], [4, 5]] şeklinde liste içinde liste döndürür.
+        """
+        visited = set()
+        communities = []
+
+        # Grafın tüm düğümlerini tek tek kontrol et
+        for node_id in graph.nodes:
+            if node_id not in visited:
+                # Yeni bir topluluk keşfettik!
+                component = []
+                
+                # Bu düğümden başlayarak ulaşılabilen herkesi bul (Basit BFS)
+                queue = [node_id]
+                visited.add(node_id)
+                
+                while queue:
+                    current = queue.pop(0)
+                    component.append(current)
+                    
+                    # Komşulara bak
+                    neighbors = graph.get_neighbors(current)
+                    for neighbor in neighbors:
+                        if neighbor not in visited:
+                            visited.add(neighbor)
+                            queue.append(neighbor)
+                
+                # Bulunan grubu listeye ekle
+                communities.append(component)
+        
+        return communities
+
+
+from src.algorithms.algorithm_base import Algorithm
+
+class BFSAlgorithm(Algorithm):
+    def get_name(self):
+        return "BFS (Genişlik Öncelikli Arama)"
+
+    def execute(self, graph, start_node_id=None, end_node_id=None):
+        """
+        Genişlik Öncelikli Arama (Queue Kullanır).
+        Breadth First Search (BFS) uses Queue data structure.
+        """
+        if start_node_id not in graph.nodes:
+            print(f"Hata: {start_node_id} ID'li düğüm bulunamadı.")
+            return []
+
+        visited = [] # Ziyaret sırası
+        queue = [start_node_id] # FIFO (İlk giren ilk çıkar)
+
+        while queue:
+            current_id = queue.pop(0) # Kuyruğun BAŞINDAN al
+            
+            if current_id not in visited:
+                visited.append(current_id)
+                
+                # Komşuları al ve kuyruğa ekle
+                neighbors = graph.get_neighbors(current_id)
+                for neighbor in neighbors:
+                    if neighbor not in visited and neighbor not in queue:
+                        queue.append(neighbor)
+                        
+        return visited
+
+class DFSAlgorithm(Algorithm):
+    def get_name(self):
+        return "DFS (Derinlik Öncelikli Arama)"
+
+    def execute(self, graph, start_node_id=None, end_node_id=None):
+        """
+        Derinlik Öncelikli Arama (Stack Kullanır).
+        Depth First Search (DFS) uses Stack data structure.
+        """
+        if start_node_id not in graph.nodes:
+            return []
+
+        visited = []
+        stack = [start_node_id] # LIFO (Son giren ilk çıkar)
+
+        while stack:
+            current_id = stack.pop() # Yığının SONUNDAN al
+            
+            if current_id not in visited:
+                visited.append(current_id)
+                
+                neighbors = graph.get_neighbors(current_id)
+                for neighbor in neighbors:
+                    if neighbor not in visited:
+                        stack.append(neighbor)
+                        
+        return visited
+
+
+from src.algorithms.algorithm_base import Algorithm
+
+class WelshPowellAlgorithm(Algorithm):
+    def get_name(self):
+        return "Welsh-Powell Renklendirme"
+
+    def execute(self, graph, start_node_id=None, end_node_id=None):
+        """
+        Komşu düğümleri farklı renklere boyar.
+        Döküman Madde 3.2: Ayrık topluluktaki komşu düğümler farklı renklerde boyanmalı. 
+        """
+        # 1. Düğümleri derecelerine göre azalan sırada sırala
+        sorted_nodes = sorted(
+            graph.nodes.values(), 
+            key=lambda node: len(graph.get_neighbors(node.id)), 
+            reverse=True
+        )
+        
+        # Renk Paleti (Yeterince renk tanımlayalım)
+        colors = [
+            "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#00FFFF", "#FF00FF", 
+            "#FFA500", "#800080", "#008080", "#FFC0CB", "#800000", "#008000"
+        ]
+        
+        # Herkesin rengini sıfırla (None yap veya geçici bir sözlükte tut)
+        node_colors = {} # {node_id: renk_kodu}
+        
+        color_index = 0
+        
+        # 2. Algoritma Döngüsü
+        # Renk atanmamış düğüm kaldığı sürece dön
+        while len(node_colors) < len(sorted_nodes):
+            current_color = colors[color_index % len(colors)] # Renk seç (yetersiz kalırsa başa dön)
+            
+            # Bu turda boyananlar (Komşuluk kontrolü için)
+            colored_in_this_round = []
+            
+            for node in sorted_nodes:
+                # Zaten boyandıysa geç
+                if node.id in node_colors:
+                    continue
+                
+                # Şu anki rengi alan komşusu var mı?
+                has_neighbor_same_color = False
+                neighbors = graph.get_neighbors(node.id)
+                
+                for neighbor_id in neighbors:
+                    if neighbor_id in colored_in_this_round:
+                        has_neighbor_same_color = True
+                        break
+                
+                # Eğer komşularda bu renk yoksa, boya!
+                if not has_neighbor_same_color:
+                    node_colors[node.id] = current_color
+                    colored_in_this_round.append(node.id)
+            
+            # Bir sonraki renge geç
+            color_index += 1
+            
+        # Sonuç: Node ID ve Renk eşleşmesi
+        return node_colors
+
+
+
+import math
+import random
+
+class SpringLayout:
+    def __init__(self, width=800, height=600):
+        self.width = width
+        self.height = height
+        self.iterations = 50
+        self.k = 0 # Optimal distance
+        self.temperature = 0 # Initial temperature
+
+    def calculate_layout(self, node_items, edge_items):
+        """
+        Fruchterman-Reingold Force-Directed Layout Algorithm.
+        Nodes: List of NodeItem objects
+        Edges: List of EdgeItem objects
+        Returns: Dict {node_id: (x, y)}
+        """
+        if not node_items:
+            return {}
+
+        nodes = [item for item in node_items]
+        
+        # Area and optimal distance
+        area = self.width * self.height
+        self.k = math.sqrt(area / len(nodes)) * 0.75
+        self.temperature = self.width / 10
+
+        # Initial positions (keep visible)
+        positions = {node.node_id: (node.x(), node.y()) for node in nodes}
+        displacements = {node.node_id: [0.0, 0.0] for node in nodes}
+
+        for i in range(self.iterations):
+            # 1. Calculate Repulsive Forces (Nodes repel each other)
+            for v in nodes:
+                displacements[v.node_id] = [0.0, 0.0] # Reset
+                for u in nodes:
+                    if u.node_id != v.node_id:
+                        delta_x = positions[v.node_id][0] - positions[u.node_id][0]
+                        delta_y = positions[v.node_id][1] - positions[u.node_id][1]
+                        dist = math.sqrt(delta_x**2 + delta_y**2)
+                        
+                        if dist < 0.1: dist = 0.1 # Avoid division by zero
+                        
+                        repulsive = (self.k * self.k) / dist
+                        
+                        displacements[v.node_id][0] += (delta_x / dist) * repulsive
+                        displacements[v.node_id][1] += (delta_y / dist) * repulsive
+
+            # 2. Calculate Attractive Forces (Edges pull nodes together)
+            for edge in edge_items:
+                u = edge.source
+                v = edge.target
+                if not u or not v: continue
+
+                delta_x = positions[v.node_id][0] - positions[u.node_id][0]
+                delta_y = positions[v.node_id][1] - positions[u.node_id][1]
+                dist = math.sqrt(delta_x**2 + delta_y**2)
+                
+                if dist < 0.1: dist = 0.1
+
+                attractive = (dist * dist) / self.k
+
+                dx = (delta_x / dist) * attractive
+                dy = (delta_y / dist) * attractive
+
+                displacements[u.node_id][0] += dx
+                displacements[u.node_id][1] += dy
+                
+                displacements[v.node_id][0] -= dx
+                displacements[v.node_id][1] -= dy
+
+            # 3. Apply Forces (Limit movement by temperature)
+            for node in nodes:
+                disp = displacements[node.node_id]
+                dist = math.sqrt(disp[0]**2 + disp[1]**2)
+                
+                if dist < 0.1: dist = 0.1
+                
+                # Limit by temperature
+                limited_dist = min(dist, self.temperature)
+                
+                new_x = positions[node.node_id][0] + (disp[0] / dist) * limited_dist
+                new_y = positions[node.node_id][1] + (disp[1] / dist) * limited_dist
+                
+                # Boundary constraints (Keep inside canvas)
+                border = 50
+                new_x = min(self.width - border, max(border, new_x))
+                new_y = min(self.height - border, max(border, new_y))
+                
+                positions[node.node_id] = (new_x, new_y)
+
+            # Cool down
+            self.temperature *= 0.95
+
+        return positions
+
+
+
+import heapq
+import math
+from src.algorithms.algorithm_base import Algorithm
+
+class DijkstraAlgorithm(Algorithm):
+    def get_name(self):
+        return "Dijkstra En Kısa Yol"
+
+    def execute(self, graph, start_node_id=None, end_node_id=None):
+        """
+        Dijkstra Algoritması: Ağırlıklı graflarda en kısa yolu bulur.
+        Priority Queue (Min-Heap) kullanır.
+        """
+        # Başlangıç ve Bitiş Kontrolü
+        if start_node_id not in graph.nodes or end_node_id not in graph.nodes:
+            print("Hata: Başlangıç veya Bitiş düğümü geçersiz.")
+            return []
+
+        # 1. Hazırlık
+        # Herkesin mesafesi sonsuz, başlangıcınki 0
+        distances = {node_id: float('inf') for node_id in graph.nodes}
+        distances[start_node_id] = 0
+        
+        # Yolu geriye doğru takip etmek için (Nereden geldim?)
+        predecessors = {node_id: None for node_id in graph.nodes}
+        
+        # Öncelik Kuyruğu: (Maliyet, DüğümID)
+        pq = [(0, start_node_id)]
+
+        while pq:
+            # En düşük maliyetli düğümü seç
+            current_dist, current_id = heapq.heappop(pq)
+
+            # Hedefe vardık mı?
+            if current_id == end_node_id:
+                break
+
+            # Eğer bulduğumuz yol, bildiğimizden daha kötüyse atla
+            if current_dist > distances[current_id]:
+                continue
+
+                # Komşuları gez
+            # graph.nodes[current_id] diyerek Node nesnesine ulaşıyoruz
+            # graph.edges listesini taramak yerine komşuluk listesinden gitmek daha hızlıdır ama
+            # Edge ağırlığına ihtiyacımız var.
+            
+            # OPTIMIZE EDILDI: Graph.get_neighbors ve get_edge kullaniliyor
+            neighbors = graph.get_neighbors(current_id)
+            if not neighbors:
+                continue
+                
+            for neighbor_id in neighbors:
+                edge = graph.get_edge(current_id, neighbor_id)
+                if not edge: continue
+                
+                # Yeni maliyet = Şu anki maliyet + Kenar Ağırlığı
+                new_dist = current_dist + edge.weight
+                
+                # Eğer daha kısa bir yol bulduysak güncelle
+                if new_dist < distances[neighbor_id]:
+                    distances[neighbor_id] = new_dist
+                    predecessors[neighbor_id] = current_id
+                    heapq.heappush(pq, (new_dist, neighbor_id))
+
+        # Yolu Geriye Doğru Oluştur (Backtrack)
+        path = []
+        step = end_node_id
+        while step is not None:
+            path.insert(0, step) # Başa ekle
+            step = predecessors[step]
+            
+        # Eğer başlangıç düğümü yolda yoksa (Yol bulunamadı demektir)
+        if path[0] != start_node_id:
+            return []
+            
+        return path
+
+class AStarAlgorithm(Algorithm):
+    def get_name(self):
+        return "A* (A-Star) Algoritması"
+
+    def heuristic(self, node_a, node_b):
+        """
+        Sezgisel (Heuristic) Fonksiyon:
+        Kullanıcının isteği üzerine 'Piksel Mesafesi' KESİNLİKLE kullanılmamaktadır.
+        Bunun yerine 'Sosyal Özellik Uzayı' (Feature Space) üzerindeki Öklid mesafesi kullanılır.
+        
+        h(n) = sqrt((Aktiflik_fark)^2 + (Etkilesim_fark)^2 + ...)
+        
+        Bu değer, gerçek maliyet (Cost = 1 + h(n)) değerinden her zaman küçüktür (Admissible).
+        Bu sayede A* hem doğru sonucu bulur hem de sosyal özellik olarak hedefe benzeyen
+        düğümleri önceleyerek aramayı hızlandırır.
+        """
+        d_aktiflik = node_a.aktiflik - node_b.aktiflik
+        d_etkilesim = node_a.etkilesim - node_b.etkilesim
+        d_baglanti = node_a.baglanti_sayisi - node_b.baglanti_sayisi
+        
+        # Özellik uzayındaki direkt kuş uçuşu mesafe
+        return math.sqrt(d_aktiflik**2 + d_etkilesim**2 + d_baglanti**2)
+
+    def execute(self, graph, start_node_id=None, end_node_id=None):
+        if start_node_id not in graph.nodes or end_node_id not in graph.nodes:
+            return []
+
+        # G Score: Başlangıçtan buraya kadarki gerçek maliyet
+        g_score = {node_id: float('inf') for node_id in graph.nodes}
+        g_score[start_node_id] = 0
+        
+        # F Score: G Score + Heuristic
+        f_score = {node_id: float('inf') for node_id in graph.nodes}
+        f_score[start_node_id] = self.heuristic(graph.nodes[start_node_id], graph.nodes[end_node_id])
+        
+        predecessors = {node_id: None for node_id in graph.nodes}
+        
+        # Kuyruk F Score'a göre sıralı
+        pq = [(f_score[start_node_id], start_node_id)]
+        
+        visited = set() # Optimize: Aynı düğümü tekrar tekrar işlememek için
+
+        while pq:
+            _, current_id = heapq.heappop(pq)
+            
+            if current_id == end_node_id:
+                break
+            
+            # Daha kötü bir yoldan tekrar geldiysek atla
+            # (Set kullanarak visited kontrolü veya g_score kontrolü yapılabilir)
+            
+            neighbors = graph.get_neighbors(current_id)
+            if not neighbors: continue
+                
+            for neighbor_id in neighbors:
+                edge = graph.get_edge(current_id, neighbor_id)
+                if not edge: continue
+
+                # DİKKAT: edge.weight artık 'Cost' (Maliyet) veriyor.
+                # PRD'deki 'Similarity' (1/1+diff) değil.
+                tentative_g_score = g_score[current_id] + edge.weight
+                
+                if tentative_g_score < g_score[neighbor_id]:
+                    predecessors[neighbor_id] = current_id
+                    g_score[neighbor_id] = tentative_g_score
+                    
+                    h = self.heuristic(graph.nodes[neighbor_id], graph.nodes[end_node_id])
+                    f_score[neighbor_id] = g_score[neighbor_id] + h
+                    
+                    heapq.heappush(pq, (f_score[neighbor_id], neighbor_id))
+                        
+        # Yolu Geriye İzle
+        path = []
+        step = end_node_id
+        while step is not None:
+            path.insert(0, step)
+            step = predecessors[step]
+            
+        if path[0] != start_node_id: return []
+        return path
+
+
+import math
+
+class Edge:
+    def __init__(self, source_node, target_node):
+        """
+        source_node: baslangic dugumu (Node Nesnesi)
+        target_node: bitis dugumu (Node Nesnesi)
+        """
+        self.source = source_node
+        self.target = target_node
+        
+        # Maliyet ve Benzerlik hesaplamalari dinamik property olarak alinir
+        # Ancak performans icin bir kez hesaplayip saklayabiliriz.
+        self._calculate_metrics()
+
+    @staticmethod
+    def calculate_weight(props_source, props_target):
+        """
+        Verilen iki özellik setine göre ağırlığı hesaplar.
+        Statik metod: UI tarafında anlık hesaplama için kullanılabilir.
+        """
+        try:
+            p_s = props_source if props_source else {}
+            p_t = props_target if props_target else {}
+            
+            val_s_akt = float(p_s.get('aktiflik', 0.0))
+            val_s_etk = float(p_s.get('etkilesim', 0.0))
+            val_s_bag = float(p_s.get('baglanti_sayisi', 0.0))
+            
+            val_t_akt = float(p_t.get('aktiflik', 0.0))
+            val_t_etk = float(p_t.get('etkilesim', 0.0))
+            val_t_bag = float(p_t.get('baglanti_sayisi', 0.0))
+            
+            d_aktiflik = val_s_akt - val_t_akt
+            d_etkilesim = val_s_etk - val_t_etk
+            d_baglanti = val_s_bag - val_t_bag
+            
+            feature_distance = math.sqrt(d_aktiflik**2 + d_etkilesim**2 + d_baglanti**2)
+            
+            weight = round(1 + feature_distance, 2)
+            similarity = round(1 / (1 + feature_distance), 4)
+            
+            return weight, similarity
+        except:
+            return 1.0, 1.0
+
+    def _calculate_metrics(self):
+        """
+        PRD 4.3 Maddesi:
+        Ağırlık(i,j) = 1 / (1 + √[(Farklar)^2])
+        """
+        # Node özelliklerini sözlük olarak alip statik metoda verelim
+        props_source = {
+            'aktiflik': self.source.aktiflik,
+            'etkilesim': self.source.etkilesim,
+            'baglanti_sayisi': self.source.baglanti_sayisi
+        }
+        props_target = {
+            'aktiflik': self.target.aktiflik,
+            'etkilesim': self.target.etkilesim,
+            'baglanti_sayisi': self.target.baglanti_sayisi
+        }
+        
+        self._weight_cost, self._similarity_score = Edge.calculate_weight(props_source, props_target)
+
+    @property
+    def weight(self):
+        """En Kısa Yol algoritmaları için 'Maliyet' (Cost) değeri."""
+        return round(self._weight_cost, 2)
+
+    @property
+    def similarity(self):
+        """PRD'de istenen 'Ağırlık' formülü sonucu (Benzerlik Skoru)."""
+        return round(self._similarity_score, 4)
+
+    def __repr__(self):
+        return f"Edge({self.source.id}-{self.target.id}, Cost={self.weight}, Sim={self.similarity})"
+
+    def to_dict(self):
+        """Dosyaya kaydetmek icin kullanilir."""
+        return {
+            "source": self.source.id,
+            "target": self.target.id,
+            "weight": self.similarity # PRD formatına sadık kalmak için CSV'ye 'benzerlik' yazılır
+        }
+
+
+
+from abc import ABC, abstractmethod
+import csv
+import os
+from src.model.node import Node
+
+#file manager arayüzü
+class IFileManager(ABC):
+    @abstractmethod
+    def load(self, file_path, graph):
+        """Dosyayı okur ve graph nesnesini doldurur."""
+        pass
+
+    @abstractmethod
+    def save(self, file_path, graph):
+        """Graph nesnesini dosyaya yazar."""
+        pass
+
+#csv file manager
+class CSVFileManager(IFileManager):
+    def load(self, file_path, graph):
+        """
+        Verilen CSV dosyasını okur ve grafı oluşturur.
+        Dökümandaki format: DugumId, Aktiflik, Etkilesim, Baglanti, Komsular
+        """
+        if not os.path.exists(file_path):
+            print(f"Hata: Dosya bulunamadı -> {file_path}")
+            return False
+
+        print(f"Dosya okunuyor: {file_path}")
+        
+        # geçici hafıza: gelen verileri tutma
+        raw_data = []
+
+        try:
+            with open(file_path, mode='r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                
+                #1. tur - Node'ları olusturma
+                for row in reader:
+                    # csv sütun isimlerini temizle ve boşlukları sil
+                    row = {k.strip(): v.strip() for k, v in row.items()}
+                    
+                    try:
+                        node_id = int(row['DugumId'])
+                        
+                        # ozellikleri hazırla
+                        # özellikleri hazırla
+                        props = {
+                            'aktiflik': float(row.get('Ozellik_I (Aktiflik)', 0)),
+                            'etkilesim': float(row.get('Ozellik_II (Etkileşim)', 0)),
+                            'baglanti_sayisi': float(row.get('Ozellik_III (Bagl. Sayisi)', 0))
+                        }
+                        
+                        # İsmi al (Yoksa opsiyonel)
+                        name = row.get('Isim')
+                        
+                        # düğümü oluştur ve ekle
+                        new_node = Node(node_id, properties=props, name=name)
+                        graph.add_node(new_node)
+                        
+                        # ham veriyi 2. tur için sakla
+                        raw_data.append(row)
+                        
+                    except ValueError as e:
+                        print(f"Satır okuma hatası: {e} - Satır: {row}")
+                        continue
+
+            #2. tur - edge'leri olusturma 
+            for row in raw_data:
+                source_id = int(row['DugumId'])
+                komsular_str = row['Komsular'] # Örn: "2,4,5"
+                
+                if komsular_str:
+                    # virgülle ayır ve her biri için kenar oluştur
+                    komsu_ids = komsular_str.split(',')
+                    for k_id in komsu_ids:
+                        try:
+                            target_id = int(k_id.strip())
+                            # self-loop engelleme
+                            if source_id != target_id:
+                                graph.add_edge(source_id, target_id)
+                        except ValueError:
+                            pass
+
+            print(f"Yükleme Başarılı! Toplam Node: {len(graph.nodes)}, Toplam Edge: {len(graph.edges)}")
+            return True
+
+        except Exception as e:
+            print(f"Genel Hata: {e}")
+            return False
+
+    def save(self, file_path, graph):
+        """
+        Graph nesnesini CSV formatında kaydeder.
+        Format: DugumId, Ozellik_I (Aktiflik), Ozellik_II (Etkileşim), Ozellik_III (Bagl. Sayisi), Komsular
+        """
+        try:
+            with open(file_path, mode='w', newline='', encoding='utf-8') as f:
+                fieldnames = ['DugumId', 'Isim', 'Ozellik_I (Aktiflik)', 'Ozellik_II (Etkileşim)', 'Ozellik_III (Bagl. Sayisi)', 'Komsular']
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                
+                writer.writeheader()
+                
+                for node_id, node in graph.nodes.items():
+                    # Komşuları bul (Graph.adjacency_list veya node.neighbors)
+                    # Graph.get_neighbors metodu güvenlidir
+                    neighbors = graph.get_neighbors(node_id)
+                    neighbors_str = ",".join(map(str, neighbors))
+                    
+                    writer.writerow({
+                        'DugumId': node_id,
+                        'Isim': node.name,
+                        'Ozellik_I (Aktiflik)': node.aktiflik,
+                        'Ozellik_II (Etkileşim)': node.etkilesim,
+                        'Ozellik_III (Bagl. Sayisi)': node.baglanti_sayisi,
+                        'Komsular': neighbors_str
+                    })
+            
+            print(f"Kaydetme başarılı: {file_path}")
+            return True
+            
+        except Exception as e:
+            print(f"Kaydetme Hatası: {e}")
+            return False
+#yeni dosya yöneticisi eklenmek istenirse buraya eklenebilir
+
+
+
+import csv
+import os
+from src.model.node import Node
+from src.model.edge import Edge
+
+class Graph:
+    def __init__(self):
+        # Düğümleri ID ile hızlı bulmak için sözlük {id: NodeObjesi}
+        self.nodes = {} 
+        # Tüm kenarların listesi
+        self.edges = [] 
+        # Algoritmalar için komşuluk listesi {id: [id1, id2]}
+        self.adjacency_list = {} 
+        # Kenar hızlı erişimi için {(u,v): Edge}
+        self.edge_map = {}
+
+    def add_node(self, node):
+        """Graf yapısına tek bir düğüm ekler."""
+        if node.id not in self.nodes:
+            self.nodes[node.id] = node
+            self.adjacency_list[node.id] = []
+
+    def add_edge(self, source_id, target_id):
+        """
+        İki ID arasındaki bağlantıyı kurar.
+        Edge nesnesi oluşturulurken ağırlık otomatik hesaplanır.
+        """
+        # 1. Düğümler var mı kontrol et
+        if source_id not in self.nodes or target_id not in self.nodes:
+            return # Düğüm yoksa işlem yapma
+        
+        # 2. Daha önce eklenmiş mi? (Tekrarlı kenar kontrolü)
+        if target_id in self.adjacency_list[source_id]:
+            return
+
+        # 3. Nesneleri al ve Edge oluştur
+        source_node = self.nodes[source_id]
+        target_node = self.nodes[target_id]
+        new_edge = Edge(source_node, target_node)
+
+        # 4. Kayıtları güncelle
+        self.edges.append(new_edge)
+        
+        # Yönsüz graf olduğu için karşılıklı ekliyoruz
+        self.adjacency_list[source_id].append(target_id)
+        self.adjacency_list[target_id].append(source_id)
+        
+        # Dugum nesnelerinin kendi icindeki listelerini de guncelle
+        source_node.neighbors.append(target_id)
+        target_node.neighbors.append(source_id)
+        
+        # Hızlı erişim için map'e ekle
+        key = tuple(sorted((source_id, target_id)))
+        self.edge_map[key] = new_edge
+
+    def get_edge(self, u_id, v_id):
+        """İki düğüm arasındaki kenar nesnesini O(1) sürede döndürür."""
+        key = tuple(sorted((u_id, v_id)))
+        return self.edge_map.get(key)
+
+    def clear(self):
+        """Grafı temizler (Yeni dosya için)."""
+        self.nodes.clear()
+        self.edges.clear()
+        self.adjacency_list.clear()
+        self.edge_map.clear()
+
+    def get_neighbors(self, node_id):
+        """Algoritmalar için komşu listesini döndürür."""
+        return self.adjacency_list.get(node_id, [])
+
+
+
+
+import random
+
+class Node:
+    def __init__(self, node_id: int, properties: dict = None, x: int = None, y: int = None, name: str = None):
+        """
+        Sosyal Ağ Analizi için Düğüm (Node) Sınıfı.
+        
+        Args:
+            node_id (int): Düğümün benzersiz kimliği.
+            properties (dict): 'aktiflik', 'etkilesim', 'baglanti_sayisi' özelliklerini içeren sözlük.
+            x (int, optional): Canvas üzerindeki X koordinatı. 
+            y (int, optional): Canvas üzerindeki Y koordinatı.
+            name (str, optional): Düğümün görünen ismi.
+        """
+        self.id = node_id
+        self.name = name if name else str(node_id) # İsim yoksa ID kullan
+        
+        # Koordinatlar verilmemişse rastgele ata
+        self.x = x if x is not None else random.randint(50, 750)
+        self.y = y if y is not None else random.randint(50, 550)
+        
+        # Özelliklerin güvenli bir şekilde atanması
+        props = properties if properties else {}
+        try:
+            self.aktiflik = float(props.get('aktiflik', 0.0))
+            self.etkilesim = float(props.get('etkilesim', 0.0))
+            self.baglanti_sayisi = float(props.get('baglanti_sayisi', 0.0))
+        except (ValueError, TypeError):
+            # Hatalı veri durumunda varsayılan değerler
+            self.aktiflik = 0.0
+            self.etkilesim = 0.0
+            self.baglanti_sayisi = 0.0
+        
+        # Algoritmalar için gerekli alanlar
+        self.color = "gray" # Görselleştirme rengi
+        self.neighbors = [] # Komşu düğüm ID'leri
+        self.radius = 20 # Çizim yarıçapı
+
+    def get_coordinates(self):
+        """(x, y) demeti döndürür."""
+        return (self.x, self.y)
+
+    def set_color(self, new_color):
+        self.color = new_color
+
+    def __repr__(self):
+        return f"Node(ID={self.id}, A={self.aktiflik}, E={self.etkilesim}, Neighbors={len(self.neighbors)})"
+
+    def to_dict(self):
+        """Dugumu JSON veya CSV'ye kaydetmek icin sözlüğe cevirir."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "x": self.x,
+            "y": self.y,
+            "aktiflik": self.aktiflik,
+            "etkilesim": self.etkilesim,
+            "baglanti_sayisi": self.baglanti_sayisi,
+            "color": self.color
+        }
+
+
+
+from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene
+from PyQt5.QtGui import QPainter
+from PyQt5.QtCore import Qt, pyqtSignal
+from .visuals import NodeItem, EdgeItem
+from .dialogs import EdgeDialog, NodeDialog
+
+class GraphCanvas(QGraphicsView):
+    itemMoved = pyqtSignal(object) # oge tasindiginda tetiklenecek sinyal
+    nodeAdded = pyqtSignal(str)    # yeni dugum eklendiginde (id gonderir)
+    nodeDeleted = pyqtSignal(str)  # dugum silindiginde (id gonderir)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.scene = QGraphicsScene(self)
+        self.scene.setSceneRect(0, 0, 800, 600) # Sahne boyutunu sabitle
+        self.setScene(self.scene)
+        
+        # gorunum ayarlari
+        self.setRenderHint(QPainter.Antialiasing)  # kirilmalari onle
+        self.setDragMode(QGraphicsView.RubberBandDrag) # varsayilan: dikdortgen secim
+        
+        # mod durumu
+        self.mode = "SELECT" # SELECT, ADD_NODE, ADD_EDGE
+        self.next_node_id = 1
+        self.temp_source_node = None # kenar eklerken ilk secilen dugum
+
+    def set_mode(self, mode):
+        self.mode = mode
+        self.temp_source_node = None # mod degisince secimi sifirla
+        if mode == "SELECT":
+            self.setDragMode(QGraphicsView.RubberBandDrag)
+        else:
+            self.setDragMode(QGraphicsView.NoDrag)
+            
+    def mousePressEvent(self, event):
+        pos = self.mapToScene(event.pos())
+        
+        if self.mode == "ADD_NODE":
+            from .visuals import NodeItem # Local import
+            from .dialogs import NodeDialog # Local import
+            
+            # 1. dialog ile sor (zorunlu)
+            dialog = NodeDialog(self, str(self.next_node_id), f"Node {self.next_node_id}")
+            if dialog.exec_():
+                label, props = dialog.get_data()
+                
+                # 2. onaylanirsa ekle
+                node = NodeItem(str(self.next_node_id), pos.x(), pos.y(), label=label, properties=props)
+                self.scene.addItem(node)
+                self.nodeAdded.emit(str(self.next_node_id))
+                self.next_node_id += 1
+            else:
+                # 3. iptal edilirse ekleme
+                print("Node creation cancelled.")
+            
+        elif self.mode == "ADD_EDGE":
+            item = self.scene.itemAt(pos, self.transform())
+            from .visuals import NodeItem, EdgeItem # Local import
+            from PyQt5.QtGui import QBrush, QColor # Local import if needed or use class level
+            
+            if isinstance(item, NodeItem):
+                if not self.temp_source_node:
+                    # ilk dugum secimi
+                    self.temp_source_node = item
+                    # vurgula (turuncu)
+                    self.temp_source_node.setBrush(QBrush(QColor("#e67e22")))
+                    print(f"Source selected: {item.node_id}")
+                else:
+                    if item != self.temp_source_node:
+                        # ikinci dugum secimi - direkt ekle
+                        # dialog yok, varsayilan weight = 1.0
+                        weight = 1.0
+                        edge = EdgeItem(self.temp_source_node, item, weight)
+                        self.scene.addItem(edge)
+                        print(f"Edge added: {self.temp_source_node.node_id} -> {item.node_id}, w={weight}")
+                        
+                        # vurguyu kaldir (maviye don)
+                        self.temp_source_node.setBrush(QBrush(QColor("#3498db")))
+                        self.temp_source_node = None # secimi sifirla
+                    else:
+                        # ayni dugume tiklandiysa iptal etme veya pass gecme
+                        # kullanici vazgecmek isterse ne olacak?
+                        # simdilik ayni dugume tiklarsa secimi iptal etsin
+                        self.temp_source_node.setBrush(QBrush(QColor("#3498db")))
+                        self.temp_source_node = None
+                        print("Selection cleared")
+        else:
+            super().mousePressEvent(event)
+
+    def mouseDoubleClickEvent(self, event):
+        pos = self.mapToScene(event.pos())
+        item = self.scene.itemAt(pos, self.transform())
+        
+        if isinstance(item, NodeItem):
+            # mevcut ozellikleri gonder
+            from .dialogs import NodeDialog # Local import
+            dialog = NodeDialog(self, item.node_id, item.label, properties=item.properties)
+            
+            if dialog.exec_():
+                new_label, new_props = dialog.get_data()
+                item.set_label(new_label) 
+                
+                # baglanti sayisini koru (otomatik hesaplandigi icin elle girilen 0'i ezmemeli)
+                # ancak kullanici sadece aktiflik/etkilesim degistirdi.
+                # baglanti sayisi canvas uzerindeki edge'lerden hesaplanmali veya mevcut korunmali.
+                current_baglanti = item.properties.get('baglanti_sayisi', 0)
+                new_props['baglanti_sayisi'] = current_baglanti # mevcudu koru
+                
+                item.properties = new_props
+                item.update_connected_edges() # agirliklari guncelle (aktiflik degistiyse weight degisir)
+                
+                print(f"Node {item.node_id} updated: Label={new_label}, Props={new_props}")
+        else:
+            super().mouseDoubleClickEvent(event)
+
+    def mouseMoveEvent(self, event):
+        super().mouseMoveEvent(event)
+        # eger surukleme islemindeysek ve bir secim varsa
+        if self.scene.selectedItems():
+            # ilk secili ogeyi gonder (genelde tek secim olur veya primary olan)
+            self.itemMoved.emit(self.scene.selectedItems()[0])
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Delete:
+            self.delete_selected_items()
+        else:
+            super().keyPressEvent(event)
+
+    def delete_selected_items(self):
+        # silinecekleri topla
+        items_to_delete = self.scene.selectedItems()
+        
+        for item in items_to_delete:
+            # zaten silinmisse gec (scene none ise)
+            if item.scene() is None:
+                continue
+
+            if isinstance(item, NodeItem):
+                # node siliniyorsa bagli edge'leri de guvenli sil
+                for edge in list(item.edges): 
+                    if edge.scene() is not None:
+                        # diger uctaki dugumden de sil
+                        if edge.source != item: edge.source.remove_edge(edge)
+                        if edge.target != item: edge.target.remove_edge(edge)
+                        
+                        self.scene.removeItem(edge)
+                
+                # kendisi de silinmemisse sil
+                if item.scene() is not None:
+                    self.scene.removeItem(item)
+                    self.nodeDeleted.emit(item.node_id)
+            
+            elif isinstance(item, EdgeItem):
+                # sadece kenar secilip silindiyse
+                if item.scene() is not None:
+                    # node'larin listesinden cikar
+                    item.source.remove_edge(item)
+                    item.target.remove_edge(item)
+                    
+                    self.scene.removeItem(item)
+
+
+from PyQt5.QtWidgets import QDialog, QFormLayout, QLineEdit, QDialogButtonBox, QDoubleSpinBox, QLabel
+
+class EdgeDialog(QDialog):
+    def __init__(self, parent=None, source_id="", target_id="", weight=1.0):
+        super().__init__(parent)
+        self.setWindowTitle("Add/Edit Edge")
+        self.setModal(True)
+        
+        layout = QFormLayout(self)
+        
+        self.source_label = QLabel(str(source_id))
+        self.target_label = QLabel(str(target_id))
+        self.weight_input = QDoubleSpinBox()
+        self.weight_input.setRange(0.0, 1000.0)
+        self.weight_input.setValue(float(weight))
+        self.weight_input.setSingleStep(0.5)
+        
+        layout.addRow("Source Node:", self.source_label)
+        layout.addRow("Target Node:", self.target_label)
+        layout.addRow("Weight:", self.weight_input)
+        
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addRow(buttons)
+        
+    def get_weight(self):
+        return self.weight_input.value()
+
+class NodeDialog(QDialog):
+    def __init__(self, parent=None, node_id="", label="", properties=None):
+        super().__init__(parent)
+        self.setWindowTitle("Düğüm Özellikleri (Node Properties)")
+        self.setModal(True)
+        
+        layout = QFormLayout(self)
+        
+        self.id_input = QLineEdit(str(node_id))
+        self.id_input.setReadOnly(True) 
+        self.label_input = QLineEdit(str(label))
+        
+        # varsayilan degerler
+        default_aktif = 0.0
+        default_etki = 0.0
+        if properties:
+            default_aktif = float(properties.get('aktiflik', 0.0))
+            default_etki = float(properties.get('etkilesim', 0.0))
+            
+        self.spin_aktif = QDoubleSpinBox()
+        self.spin_aktif.setRange(0.0, 1000.0)
+        self.spin_aktif.setValue(default_aktif)
+        self.spin_aktif.setSingleStep(1.0) # v3: hata duzeltme, genelde tam sayi veya 1.0 adimli
+        
+        self.spin_etki = QDoubleSpinBox()
+        self.spin_etki.setRange(0.0, 1000.0)
+        self.spin_etki.setValue(default_etki)
+        self.spin_etki.setSingleStep(1.0)
+        
+        layout.addRow("Düğüm ID:", self.id_input)
+        layout.addRow("İsim (Name):", self.label_input)
+        layout.addRow("Aktiflik (Activity):", self.spin_aktif)
+        layout.addRow("Etkileşim (Interaction):", self.spin_etki)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addRow(buttons)
+        
+    def get_data(self):
+        props = {
+            'aktiflik': self.spin_aktif.value(),
+            'etkilesim': self.spin_etki.value(),
+            'baglanti_sayisi': 0 # bu otomatik hesaplanir, elle girilemez
+        }
+        return self.label_input.text(), props
+
+
+
+
+# GÖREV: Üye A - Arayüz Kodları
+from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QDockWidget, QTabWidget, QPushButton, QComboBox, QLabel, QFormLayout, QHBoxLayout, QFileDialog, QMessageBox, QAction, QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox
+from PyQt5.QtCore import Qt, QSize, QTimer
+from PyQt5.QtGui import QColor, QBrush
+import time
+from .canvas import GraphCanvas
+from .properties_panel import PropertiesPanel
+from src.model.graph import Graph
+from src.model.node import Node
+from src.algorithms.bfs_dfs import BFSAlgorithm, DFSAlgorithm
+from src.algorithms.shortest_path import DijkstraAlgorithm, AStarAlgorithm
+from src.algorithms.analysis import DegreeCentralityAlgorithm, ConnectedComponentsAlgorithm
+from src.algorithms.coloring import WelshPowellAlgorithm
+from src.model.file_manager import CSVFileManager
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Sosyal Ağ Analizi (Social Network Analysis)")
+        self.setGeometry(100, 100, 1200, 800) # Biraz daha geniş başlasın
+        
+        # stili uygula (baslangic %100)
+        from .styles import get_stylesheet
+        self.current_scale = 1.0
+        self.setStyleSheet(get_stylesheet(self.current_scale))
+        
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+        self.layout = QVBoxLayout(self.central_widget)
+        
+        self.canvas = GraphCanvas(self)
+        self.layout.addWidget(self.canvas)
+        
+        # algoritma ismi overlay
+        self.lbl_algo_overlay = QLabel("", self.canvas)
+        # daha profesyonel gorunum:
+        # - segoe ui font (windows standardi) veya helvetica
+        # - hafif golge efekti (border)
+        # - yari saydam koyu arka plan + beyaz yazi (hud tarzi) veya tam tersi
+        self.lbl_algo_overlay.setStyleSheet("""
+            QLabel {
+                background-color: rgba(30, 30, 30, 220); 
+                color: #ecf0f1; 
+                font-family: 'Segoe UI', sans-serif;
+                font-size: 18px; 
+                font-weight: 600; 
+                padding: 12px 16px; 
+                border-radius: 6px;
+                border: 1px solid #555;
+            }
+        """)
+        self.lbl_algo_overlay.hide()
+        
+        # bilgi overlay (sol ust)
+        self.lbl_info_overlay = QLabel(
+            "Sol Tık + Sürükle = Çoklu Seçim\n"
+            "Delete Tuşu = Seçileni Sil", 
+            self.canvas
+        )
+        self.lbl_info_overlay.setStyleSheet("""
+            QLabel {
+                background-color: rgba(255, 255, 255, 180);
+                color: #2c3e50;
+                font-family: 'Segoe UI', sans-serif;
+                font-size: 16px;
+                font-weight: bold;
+                padding: 10px;
+                border: 2px solid #bdc3c7;
+                border-radius: 6px;
+            }
+        """)
+        self.lbl_info_overlay.adjustSize()
+        self.lbl_info_overlay.show()
+        
+        # panelleri olustur
+        self.create_dock_panels()
+        
+        # menu bar (dock paneller olustuktan sonra cagrilmali)
+        self.create_menu_bar()
+        
+        # sinyal baglantilari
+        self.canvas.scene.selectionChanged.connect(self.on_selection_changed)
+        self.canvas.itemMoved.connect(self.properties_panel.update_selection)
+        self.canvas.nodeAdded.connect(self.update_combos)
+        self.canvas.nodeDeleted.connect(self.update_combos)
+        
+        # status bar
+        self.status_bar = self.statusBar()
+        self.status_bar.showMessage("Ready")
+
+        # animasyon icin timer
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.animate_step)
+        self.animation_queue = []
+        self.animation_visited = set()
+        self.animation_path_edges = [] # [(u, v), ...]
+
+
+    def set_zoom(self, scale_factor):
+        """Arayüzü belirtilen oranda ölçekler."""
+        print(f"Zoom set to: {scale_factor*100}%")
+        self.current_scale = scale_factor
+        
+        # Stili Yeniden Oluştur ve Uygula
+        from .styles import get_stylesheet
+        self.setStyleSheet(get_stylesheet(self.current_scale))
+        
+        self.status_bar.showMessage(f"Arayüz ölçeği: %{int(scale_factor*100)}")
+
+    def create_dock_panels(self):
+        # --- sag panel (ozellikler) ---
+        self.properties_dock = QDockWidget("Özellikler (Properties)", self)
+        self.properties_dock.setAllowedAreas(Qt.RightDockWidgetArea | Qt.LeftDockWidgetArea)
+        self.properties_panel = PropertiesPanel()
+        self.properties_dock.setWidget(self.properties_panel)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.properties_dock)
+        
+        # --- sol panel (kontrol / analiz) ---
+        self.control_dock = QDockWidget("Kontrol Paneli (Control Panel)", self)
+        self.control_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        
+        # tab yapisi (edit / analysis)
+        self.tabs = QTabWidget()
+        self.setup_edit_tab()
+        self.setup_analysis_tab()
+        
+        self.control_dock.setWidget(self.tabs)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.control_dock)
+
+    def setup_edit_tab(self):
+        """duzenleme islevleri icin sekme"""
+        edit_widget = QWidget()
+        layout = QVBoxLayout(edit_widget)
+        
+        # butonlar (turkce)
+        btn_select = QPushButton("Seçim Modu (Select)")
+        btn_add_node = QPushButton("Düğüm Ekle (Add Node)")
+        btn_add_edge = QPushButton("Kenar Ekle (Add Edge)")
+        btn_clear = QPushButton("Temizle (Clear)")
+        
+        # temizle butonu icin ozel kirmizi stil
+        btn_clear.setStyleSheet("background-color: #e74c3c; color: white;")
+        
+        layout.addWidget(btn_select)
+        layout.addWidget(btn_add_node)
+        layout.addWidget(btn_add_edge)
+        layout.addStretch() # Boşluğu alta it
+        layout.addWidget(btn_clear)
+        
+        self.tabs.addTab(edit_widget, "Düzenle (Edit)")
+        
+        # Bağlantılar
+        btn_select.clicked.connect(lambda: self.canvas.set_mode("SELECT"))
+        btn_add_node.clicked.connect(lambda: self.canvas.set_mode("ADD_NODE"))
+        btn_add_edge.clicked.connect(lambda: self.canvas.set_mode("ADD_EDGE"))
+        btn_clear.clicked.connect(self.canvas.scene.clear)
+
+    def setup_analysis_tab(self):
+        """algoritma analizi islevleri icin sekme"""
+        analysis_widget = QWidget()
+        layout = QVBoxLayout(analysis_widget)
+        
+        # algoritma secimi
+        layout.addWidget(QLabel("Algoritma:"))
+        self.combo_algo = QComboBox()
+        self.combo_algo.addItems([
+            "Dijkstra Shortest Path",
+            "A* Shortest Path",
+            "BFS (Breadth-First)",
+            "DFS (Depth-First)",
+            "Welsh-Powell Coloring",
+            "Connected Components (Clustering)",
+            "Degree Centrality"
+        ])
+        layout.addWidget(self.combo_algo)
+        
+        # baslangic / bitis node secimi
+        self.lbl_start_node = QLabel("Başlangıç Düğümü:")
+        layout.addWidget(self.lbl_start_node)
+        self.combo_start_node = QComboBox()
+        layout.addWidget(self.combo_start_node)
+        
+        self.lbl_end_node = QLabel("Bitiş (Hedef) Düğümü:")
+        layout.addWidget(self.lbl_end_node)
+        self.combo_end_node = QComboBox()
+        layout.addWidget(self.combo_end_node)
+        
+        # animasyon checkbox
+        self.chk_animate = QCheckBox("Animasyonlu Çalıştır")
+        self.chk_animate.setChecked(True)
+        layout.addWidget(self.chk_animate)
+        
+        # calistir butonu
+        self.btn_run = QPushButton("Analizi Başlat (Run)")
+        self.btn_run.setStyleSheet("background-color: #27ae60; color: white; font-weight: bold; padding: 10px;") # Yeşil
+        layout.addWidget(self.btn_run)
+        
+        # sure gostergesi
+        layout.addWidget(QLabel("Çalışma Süresi:"))
+        self.lbl_time = QLabel("-")
+        self.lbl_time.setStyleSheet("font-weight: bold; color: #e74c3c; border: 1px solid #bdc3c7; padding: 4px; border-radius: 4px; background: white;")
+        layout.addWidget(self.lbl_time)
+
+        # sonuc alani
+        layout.addWidget(QLabel("Sonuç (Çıktı):"))
+        self.lbl_result = QLabel("Hazır")
+        self.lbl_result.setWordWrap(True)
+        self.lbl_result.setStyleSheet("border: 1px solid #bdc3c7; padding: 8px; background: white; border-radius: 4px;")
+        layout.addWidget(self.lbl_result)
+        
+        # tablo sonuc butonu
+        self.btn_show_table = QPushButton("Tabloda Göster (Show Table)")
+        self.btn_show_table.setStyleSheet("background-color: #7f8c8d; color: white; padding: 6px;")
+        self.btn_show_table.setEnabled(False) # sonuc olusana kadar pasif
+        layout.addWidget(self.btn_show_table)
+        
+        layout.addStretch()
+        self.tabs.addTab(analysis_widget, "Analiz (Analysis)")
+        
+        # signal baglantisi
+        self.btn_run.clicked.connect(self.run_algorithm)
+        self.btn_show_table.clicked.connect(self.show_result_table)
+        self.combo_algo.currentIndexChanged.connect(self.update_input_fields)
+        
+        # ilk acilista guncelle
+        self.update_input_fields()
+        
+        # sonuc saklama
+        self.last_result = None
+        self.last_algo_type = None
+
+    def update_input_fields(self):
+        """secili algoritmaya gore input alanlarini gizle/goster."""
+        algo = self.combo_algo.currentText()
+        
+        show_start = True
+        show_end = True
+        
+        if "BFS" in algo or "DFS" in algo:
+            show_end = False # traversals don't need end node
+        elif "Clustering" in algo or "Coloring" in algo or "Centrality" in algo:
+            show_start = False
+            show_end = False # global algorithms don't need inputs
+            
+        self.lbl_start_node.setVisible(show_start)
+        self.combo_start_node.setVisible(show_start)
+        self.lbl_end_node.setVisible(show_end)
+        self.combo_end_node.setVisible(show_end)
+
+    def on_selection_changed(self):
+        items = self.canvas.scene.selectedItems()
+        if items:
+            self.properties_panel.update_selection(items[0])
+        else:
+            self.properties_panel.update_selection(None)
+
+    def update_combos(self):
+        """combobox'lari kandaki dugumlerle gunceller."""
+        from .visuals import NodeItem # Döngüsel importu önlemek için burada
+        
+        current_start = self.combo_start_node.currentText()
+        current_end = self.combo_end_node.currentText()
+        
+        self.combo_start_node.clear()
+        self.combo_end_node.clear()
+        
+        node_ids = []
+        for item in self.canvas.scene.items():
+            if isinstance(item, NodeItem):
+                node_ids.append(item.node_id)
+        
+        # id'leri sirala (gorsel duzen icin)
+        node_ids.sort()
+        
+        self.combo_start_node.addItems(node_ids)
+        self.combo_end_node.addItems(node_ids)
+        
+        # secimleri korumaya calis
+        if current_start in node_ids:
+            self.combo_start_node.setCurrentText(current_start)
+        if current_end in node_ids:
+            self.combo_end_node.setCurrentText(current_end)
+
+
+            
+    def highlight_path(self, path_ids):
+        """bulunan yolu canvas uzerinde boyar."""
+        from .visuals import NodeItem, EdgeItem
+        
+        # once hepsini normale cevir (reset)
+        for item in self.canvas.scene.items():
+            if isinstance(item, NodeItem):
+                item.setBrush(Qt.blue) # varsayilan renk (mavi)
+            elif isinstance(item, EdgeItem):
+                item.setPen(Qt.black) # varsayilan renk (siyah)
+
+        # yolu boya
+        # dugumler
+        path_items = {} # id -> nodeitem
+        for item in self.canvas.scene.items():
+            if isinstance(item, NodeItem) and item.node_id in path_ids:
+                path_items[item.node_id] = item
+                item.setBrush(Qt.red) # secili yol rengi (kirmizi)
+        
+        # kenarlar (ardisik path elemanlari arasindaki kenarlari bul)
+        for i in range(len(path_ids) - 1):
+            u_id = path_ids[i]
+            v_id = path_ids[i+1]
+            
+            for item in self.canvas.scene.items():
+                if isinstance(item, EdgeItem):
+                    if (item.source.node_id == u_id and item.target.node_id == v_id) or \
+                       (item.source.node_id == v_id and item.target.node_id == u_id): # yonsuz
+                        pen = item.pen()
+                        pen.setColor(Qt.red)
+                        pen.setWidth(4)
+                        item.setPen(pen)
+
+    def apply_coloring(self, node_colors):
+        """dugumleri verilen renklere gore boyar (dict: {id: #hexcode})."""
+        from .visuals import NodeItem
+        from PyQt5.QtGui import QColor, QBrush
+        
+        # once reset
+        for item in self.canvas.scene.items():
+            if isinstance(item, NodeItem):
+                item.setBrush(QBrush(QColor("#3498db"))) # reset to default blue
+        
+        # sonra boya
+        for item in self.canvas.scene.items():
+            if isinstance(item, NodeItem):
+                if item.node_id in node_colors:
+                    color_code = node_colors[item.node_id]
+                    item.setBrush(QBrush(QColor(color_code)))
+
+    def show_result_table(self):
+        """sonuclari tablo olarak gosterir."""
+        from PyQt5.QtWidgets import QAbstractItemView
+        from PyQt5.QtGui import QColor, QBrush # safety import
+        if not self.last_result:
+            return
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"Result Table - {self.last_algo_type}")
+        dialog.resize(600, 400)
+        layout = QVBoxLayout(dialog)
+        
+        table = QTableWidget()
+        table.setEditTriggers(QAbstractItemView.NoEditTriggers) # salt okunur
+        layout.addWidget(table)
+        
+        # helper to get node name
+        from .visuals import NodeItem
+        def get_node_name_by_id(nid):
+            for item in self.canvas.scene.items():
+                if isinstance(item, NodeItem) and item.node_id == nid:
+                    return getattr(item, 'label_text', str(nid))
+            return str(nid)
+
+        if self.last_algo_type == "Path" or self.last_algo_type == "Traversal":
+            # list of node ids
+            # "order" sutunu kaldirildi (satir numarasi zaten var)
+            headers = ["Node ID", "Name"]
+            if self.last_algo_type == "Path":
+                headers.append("Cumulative Cost (Approx)") # basitlik icin
+                
+            table.setColumnCount(len(headers))
+            table.setHorizontalHeaderLabels(headers)
+            table.setRowCount(len(self.last_result))
+            
+            for i, node_id in enumerate(self.last_result):
+                table.setItem(i, 0, QTableWidgetItem(str(node_id)))
+                table.setItem(i, 1, QTableWidgetItem(get_node_name_by_id(node_id)))
+                if self.last_algo_type == "Path":
+                    # gercek maliyeti graph uzerinden hesaplamak lazim ama simdilik bos gecelim veya
+                    # run_algorithm icinde hesaplanip buraya object olarak gelmeliydi.
+                    # istege gore burasi gelistirilebilir.
+                    table.setItem(i, 2, QTableWidgetItem("-"))
+
+        elif self.last_algo_type == "Coloring":
+            # dict: {nodeid: hexcode}
+            headers = ["Node ID", "Name", "Color Code"]
+            table.setColumnCount(len(headers))
+            table.setHorizontalHeaderLabels(headers)
+            table.setRowCount(len(self.last_result))
+            
+            for i, (node_id, color) in enumerate(self.last_result.items()):
+                table.setItem(i, 0, QTableWidgetItem(str(node_id)))
+                table.setItem(i, 1, QTableWidgetItem(get_node_name_by_id(node_id)))
+                
+                item = QTableWidgetItem(str(color))
+                item.setBackground(QColor(color))
+                if color == "#000000": item.setForeground(QColor("white"))
+                table.setItem(i, 2, item)
+
+        elif self.last_algo_type == "Clustering":
+            # list of lists: [[id, id], [id]]
+            headers = ["Cluster ID", "Node Count", "Nodes"]
+            table.setColumnCount(len(headers))
+            table.setHorizontalHeaderLabels(headers)
+            table.setRowCount(len(self.last_result))
+            
+            for i, component in enumerate(self.last_result):
+                table.setItem(i, 0, QTableWidgetItem(str(i + 1)))
+                table.setItem(i, 1, QTableWidgetItem(str(len(component))))
+                
+                names = [f"{nid} ({get_node_name_by_id(nid)})" for nid in component]
+                # cok uzun olmasin, ilk 10 tanesini goster
+                content = ", ".join(names[:10])
+                if len(names) > 10: content += f" ... (+{len(names)-10} more)"
+                
+                table.setItem(i, 2, QTableWidgetItem(content))
+        
+        elif self.last_algo_type == "Centrality":
+             # list of tuples: [(id, score), ...]
+            headers = ["Rank", "Node ID", "Name", "Score"]
+            table.setColumnCount(len(headers))
+            table.setHorizontalHeaderLabels(headers)
+            table.setRowCount(len(self.last_result))
+            
+            for i, (node_id, score) in enumerate(self.last_result):
+                table.setItem(i, 0, QTableWidgetItem(str(i + 1)))
+                table.setItem(i, 1, QTableWidgetItem(str(node_id)))
+                table.setItem(i, 2, QTableWidgetItem(get_node_name_by_id(node_id)))
+                table.setItem(i, 3, QTableWidgetItem(f"{score:.4f}"))
+
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        
+        btn_close = QPushButton("Close")
+        btn_close.clicked.connect(dialog.accept)
+        layout.addWidget(btn_close)
+        
+        dialog.exec_()
+
+    def show_centrality_results(self, scores):
+        """merkezilik skorlarini bir tabloda gosterir."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Degree Centrality Results")
+        dialog.resize(400, 300)
+        
+        layout = QVBoxLayout(dialog)
+        
+        table = QTableWidget()
+        table.setEditTriggers(QAbstractItemView.NoEditTriggers) # salt okunur
+        table.setColumnCount(2)
+        table.setHorizontalHeaderLabels(["Node ID", "Degree Score"])
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        
+        # en yuksek 5 tanesini goster
+        top_scores = scores[:5]
+        table.setRowCount(len(top_scores))
+        
+        for i, (node_id, score) in enumerate(top_scores):
+            table.setItem(i, 0, QTableWidgetItem(str(node_id)))
+            table.setItem(i, 1, QTableWidgetItem(str(score)))
+            
+        layout.addWidget(table)
+        
+        btn_close = QPushButton("Close")
+        btn_close.clicked.connect(dialog.accept)
+        layout.addWidget(btn_close)
+        
+        dialog.exec_()
+
+    def start_animation(self, node_list, is_path=False):
+        """animasyonu baslatir."""
+        self.animation_queue = list(node_list) # kopyasini al ki last_result bozulmasin
+        self.animation_is_path = is_path
+        self.animation_visited.clear()
+        
+        # reset canvas
+        from .visuals import NodeItem, EdgeItem
+        from PyQt5.QtGui import QColor, QBrush
+        
+        for item in self.canvas.scene.items():
+            if isinstance(item, NodeItem):
+                item.setBrush(QBrush(QColor("#3498db"))) # mavi
+            elif isinstance(item, EdgeItem):
+                item.setPen(Qt.black)
+
+        self.timer.start(300) # 300ms gecikme
+        self.btn_run.setEnabled(False) 
+        self.btn_show_table.setEnabled(False) # animasyon bitene kadar sonuc gosterme
+        self.status_bar.showMessage("Animating...")
+
+    def animate_step(self):
+        """timer her tetiklendiginde calisir."""
+        from .visuals import NodeItem, EdgeItem
+        from PyQt5.QtGui import QColor, QBrush
+        
+        if not self.animation_queue:
+            self.timer.stop()
+            self.btn_run.setEnabled(True)
+            if self.last_result: # eger sonuc varsa butonu ac
+                self.btn_show_table.setEnabled(True)
+            self.status_bar.showMessage("Animation Completed.")
+            
+            # eger path animasyonu ise, kenarlari da son asamada kirmizi yapalim tam gorunsun
+            if self.animation_is_path:
+                # (highlight_path fonksiyonunu cagirabiliriz veya burada manuel yapariz)
+                pass
+            return
+
+        current_id = self.animation_queue.pop(0)
+        self.animation_visited.add(current_id)
+        
+        # ilgili dugumu bul ve boya
+        for item in self.canvas.scene.items():
+            if isinstance(item, NodeItem) and item.node_id == current_id:
+                if self.animation_is_path:
+                    item.setBrush(QBrush(QColor("#e74c3c"))) # kirmizi (path)
+                else:
+                    item.setBrush(QBrush(QColor("#f39c12"))) # turuncu (ziyaret edilen)
+                break
+        
+        # eger path ise bir onceki ile baglantiyi da boya
+        # (bu basit animasyon, sadece node'lari yakar sonuk yapar)
+
+    def run_algorithm(self):
+        """secili algoritmaya gore calistir."""
+        from .visuals import NodeItem, EdgeItem
+        
+        algo_name = self.combo_algo.currentText()
+        start_id = self.combo_start_node.currentText()
+        end_id = self.combo_end_node.currentText()
+        
+        # ... (validasyonlar ayni kalacak, sadece execute sonrasi degisecek)
+        
+        if not start_id and "Coloring" not in algo_name and "Clustering" not in algo_name and "Centrality" not in algo_name:
+            self.lbl_result.setText("Error: Please select a start node.")
+            return
+
+        graph = Graph()
+        # graph olusturma kismi ayni...
+        for item in self.canvas.scene.items():
+            if isinstance(item, NodeItem):
+                props = item.properties if hasattr(item, 'properties') else {}
+                model_node = Node(item.node_id, properties=props, x=item.x(), y=item.y())
+                graph.add_node(model_node)
+        for item in self.canvas.scene.items():
+            if isinstance(item, EdgeItem):
+                graph.add_edge(item.source.node_id, item.target.node_id)
+
+        # algoritma nesnesi
+        algorithm = None
+        if "BFS" in algo_name: algorithm = BFSAlgorithm()
+        elif "DFS" in algo_name: algorithm = DFSAlgorithm()
+        elif "Dijkstra" in algo_name: algorithm = DijkstraAlgorithm()
+        elif "A*" in algo_name: algorithm = AStarAlgorithm()
+        elif "Coloring" in algo_name: algorithm = WelshPowellAlgorithm()
+        elif "Clustering" in algo_name: algorithm = ConnectedComponentsAlgorithm()
+        elif "Degree Centrality" in algo_name: algorithm = DegreeCentralityAlgorithm()
+        else:
+            self.lbl_result.setText(f"Not implemented: {algo_name}")
+            return
+            
+        # DEBUG: Check if weights are all 1.0 (implying missing properties)
+        weights = [e.weight for e in graph.edges]
+        if weights and all(w == 1.0 for w in weights):
+            print("WARNING: All edge weights are 1.0! Node properties might be missing.")
+            QMessageBox.warning(self, "Data Warning", "All edge weights are 1.0!\n\nThis usually means node properties (Active, Interaction, etc.) are missing or zero.\n\nShortest Path will behave like BFS (fewest hops).")
+            
+        try:
+            print(f"Running {algo_name}")
+            
+            # overlay guncelle
+            self.lbl_algo_overlay.setText(f"Active Algorithm: {algo_name}")
+            self.lbl_algo_overlay.adjustSize()
+            self.lbl_algo_overlay.show()
+            self.update_overlay_pos()
+            
+            start_time = time.time()
+            
+            # 1. renklendirme ve analizler (animasyonsuz veya farkli)
+            if isinstance(algorithm, WelshPowellAlgorithm):
+                colors = algorithm.execute(graph)
+                elapsed_time = (time.time() - start_time) * 1000
+                self.lbl_time.setText(f"{elapsed_time:.2f} ms")
+                
+                self.apply_coloring(colors)
+                self.lbl_result.setText(f"Coloring applied. Total colors: {len(set(colors.values()))}")
+                
+                self.last_result = colors
+                self.last_algo_type = "Coloring"
+                self.btn_show_table.setEnabled(True)
+                return
+                
+            elif isinstance(algorithm, ConnectedComponentsAlgorithm):
+                components = algorithm.execute(graph)
+                elapsed_time = (time.time() - start_time) * 1000
+                self.lbl_time.setText(f"{elapsed_time:.2f} ms")
+                
+                # ... Renklendirme kodu ...
+                colors = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#00FFFF", "#FF00FF", "#FFA500", "#800080", "#008080", "#FFC0CB", "#800000", "#008000"]
+                node_colors_map = {}
+                for i, component in enumerate(components):
+                    color = colors[i % len(colors)]
+                    for node_id in component:
+                        node_colors_map[node_id] = color
+                self.apply_coloring(node_colors_map)
+                self.lbl_result.setText(f"Components found: {len(components)}. Coloring applied.")
+                
+                self.last_result = components
+                self.last_algo_type = "Clustering"
+                self.btn_show_table.setEnabled(True)
+                return
+            
+            elif isinstance(algorithm, DegreeCentralityAlgorithm):
+                scores = algorithm.execute(graph)
+                elapsed_time = (time.time() - start_time) * 1000
+                self.lbl_time.setText(f"{elapsed_time:.2f} ms")
+                
+                self.show_centrality_results(scores)
+                self.lbl_result.setText(f"Centrality scores calculated.")
+                
+                self.last_result = scores
+                self.last_algo_type = "Centrality"
+                self.btn_show_table.setEnabled(True)
+                return 
+
+            # 2. gezinti ve yol algoritmalari (animasyonlu)
+            result_list = algorithm.execute(graph, start_id, end_id)
+            elapsed_time = (time.time() - start_time) * 1000
+            self.lbl_time.setText(f"{elapsed_time:.2f} ms")
+            
+            if not result_list:
+                self.lbl_result.setText(f"No path/result found.")
+                self.last_result = None
+                self.btn_show_table.setEnabled(False)
+                return
+
+            result_str = " -> ".join(map(str, result_list))
+            self.lbl_result.setText(f"{result_str}")
+            
+            # sonucu sakla
+            self.last_result = result_list
+            if "BFS" in algo_name or "DFS" in algo_name:
+                self.last_algo_type = "Traversal"
+            else:
+                self.last_algo_type = "Path"
+            self.btn_show_table.setEnabled(True)
+            
+            # animasyon isteniyor mu?
+            if self.chk_animate.isChecked():
+                # path mi yoksa visited list mi?
+                # bfs/dfs visited doner (butun gezilenler)
+                # dijkstra/a* path doner (sadece en kisa yol)
+                is_path = "Shortest" in algo_name
+                self.start_animation(result_list, is_path=is_path)
+            else:
+                self.highlight_path(result_list)
+                
+        except Exception as e:
+            self.lbl_result.setText(f"Error: {str(e)}")
+            print(e)
+            import traceback
+            traceback.print_exc()
+
+            import traceback
+            traceback.print_exc()
+
+    def create_menu_bar(self):
+        menubar = self.menuBar()
+        menubar.clear() # temiz bir baslangic
+
+        # --- dosya (file) menusu ---
+        file_menu = menubar.addMenu("File")
+        
+        action_open = QAction("Open CSV", self)
+        action_open.triggered.connect(self.load_graph)
+        file_menu.addAction(action_open)
+        
+        action_save = QAction("Save CSV", self)
+        action_save.triggered.connect(self.save_graph)
+        file_menu.addAction(action_save)
+        
+        # --- gorunum (view) menusu ---
+        # kullanici istegi: sadece "view" yazsin
+        view_menu = menubar.addMenu("View")
+        
+        # Layout
+        action_layout = QAction("Auto Layout (Force-Directed)", self)
+        action_layout.triggered.connect(self.apply_layout)
+        view_menu.addAction(action_layout)
+        
+        view_menu.addSeparator()
+
+        # Zoom Seçenekleri
+        zoom_50 = QAction("Zoom %50", self)
+        zoom_50.triggered.connect(lambda: self.set_zoom(0.5))
+        
+        zoom_75 = QAction("Zoom %75", self)
+        zoom_75.triggered.connect(lambda: self.set_zoom(0.75))
+
+        zoom_100 = QAction("Zoom %100 (Default)", self)
+        zoom_100.triggered.connect(lambda: self.set_zoom(1.0))
+        
+        zoom_150 = QAction("Zoom %150", self)
+        zoom_150.triggered.connect(lambda: self.set_zoom(1.5))
+        
+        zoom_200 = QAction("Zoom %200", self)
+        zoom_200.triggered.connect(lambda: self.set_zoom(2.0))
+        
+        view_menu.addAction(zoom_50)
+        view_menu.addAction(zoom_75)
+        view_menu.addAction(zoom_100)
+        view_menu.addAction(zoom_150)
+        view_menu.addAction(zoom_200)
+        
+        view_menu.addSeparator()
+        
+        # dock gorunurlukleri
+        view_menu.addAction(self.control_dock.toggleViewAction())
+        view_menu.addAction(self.properties_dock.toggleViewAction())
+
+    def load_graph(self):
+        """csv dosyasini acar ve ekrana cizer."""
+        file_path, _ = QFileDialog.getOpenFileName(self, "Open CSV", "", "CSV Files (*.csv)")
+        if not file_path:
+            return
+            
+        from .visuals import NodeItem, EdgeItem
+        
+        graph = Graph()
+        manager = CSVFileManager()
+        
+        if manager.load(file_path, graph):
+            # Başarılı ise ekranı temizle ve yeniden çiz
+            self.canvas.scene.clear()
+            self.canvas.next_node_id = 1
+            
+            # node'lari ciz
+            node_items = {} # id -> nodeitem
+            max_id = 0
+            
+            for node_id, node in graph.nodes.items():
+                # node(string or int) -> canvas item
+                # x,y zaten node icinde var (varsayilan rastgele atanmistir graph.py icinde veya file_manager load icinde)
+                # dikkat: csv'de x,y yoksa file_manager load ederken rastgele atamaliydi.
+                # node.__init__ icinde rastgele ataniyor.
+                
+                # id, x, y ve ozellikleri nodeitem'a aktar
+                props = {
+                    'aktiflik': node.aktiflik,
+                    'etkilesim': node.etkilesim,
+                    'baglanti_sayisi': 0 # sifirdan baslat, kenarlar eklendikce artacak
+                }
+                item = NodeItem(str(node_id), node.x, node.y, properties=props, label=node.name)
+                self.canvas.scene.addItem(item)
+                node_items[node_id] = item
+                
+                # gelecek icin id sayacini guncelle
+                try:
+                    if int(node_id) > max_id: max_id = int(node_id)
+                except: pass
+
+            # edge'leri ciz
+            for edge in graph.edges:
+                source_item = node_items.get(edge.source.id)
+                target_item = node_items.get(edge.target.id)
+                
+                if source_item and target_item:
+                    # kararli cizimi engelle (yonsuz graf)
+                    # graph edges listesinde a->b ve b->a olabilir ya da file_manager tek sefer eklemis olabilir.
+                    # gorsel olarak tek cizgi yetiyorsa kontrol et.
+                    # ama simdilik hepsini cizmek guvenli.
+                    
+                    # zaten var mi gorselde?
+                    exists = False
+                    # (optimize edilebilir ama simdilik basit tutalim)
+                    
+                    edge_item = EdgeItem(source_item, target_item, edge.weight)
+                    self.canvas.scene.addItem(edge_item)
+
+            self.canvas.next_node_id = max_id + 1
+            self.update_combos()
+            self.status_bar.showMessage(f"Loaded: {file_path}")
+        else:
+            QMessageBox.critical(self, "Error", "Failed to load file.")
+
+    def save_graph(self):
+        """mevcut gorunumu csv olarak kaydeder."""
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save CSV", "", "CSV Files (*.csv)")
+        if not file_path:
+            return
+            
+        from .visuals import NodeItem, EdgeItem
+        
+        # ui -> model
+        graph = Graph()
+        
+        # 1. dugumler
+        for item in self.canvas.scene.items():
+            if isinstance(item, NodeItem):
+                # Özellikleri şimdilik sabit veya random tutuyoruz
+                # İleride PropertiesPanel'den güncellenen değerler NodeItem içinde saklanmalı
+                # Özellikleri koru
+                props = item.properties if hasattr(item, 'properties') else {}
+                node = Node(item.node_id, properties=props, x=item.x(), y=item.y())
+                
+                # eger ozellik panelinden guncellenmis degerler varsa onlari al
+                # (simdilik properties_panel ile canvas arasinda tam senkronizasyon yok, basitce yapiyoruz)
+                graph.add_node(node)
+                
+        # 2. kenarlar
+        for item in self.canvas.scene.items():
+            if isinstance(item, EdgeItem):
+                graph.add_edge(item.source.node_id, item.target.node_id)
+
+        manager = CSVFileManager()
+        if manager.save(file_path, graph):
+             self.status_bar.showMessage(f"Saved: {file_path}")
+        else:
+             QMessageBox.critical(self, "Error", "Failed to save file.")
+
+    def apply_layout(self):
+        """grafa otomatik duzen (spring layout) uygular."""
+        from src.algorithms.layout import SpringLayout
+        from src.ui.visuals import NodeItem, EdgeItem
+        
+        node_items = [item for item in self.canvas.scene.items() if isinstance(item, NodeItem)]
+        edge_items = [item for item in self.canvas.scene.items() if isinstance(item, EdgeItem)]
+        
+        if not node_items: return
+        
+        self.status_bar.showMessage("Applying layout...")
+        # arayuz donmasin diye processevents yapilabilir ama 50 iterasyon hizli surer
+        
+        layout = SpringLayout(800, 600)
+        new_positions = layout.calculate_layout(node_items, edge_items)
+        
+        for node in node_items:
+            if node.node_id in new_positions:
+                x, y = new_positions[node.node_id]
+                node.setPos(x, y)
+                # dugum hareket edince kenarlar otomatik guncellenir (itemchange ile).
+        
+        
+        self.status_bar.showMessage("Layout applied.")
+
+    def update_overlay_pos(self):
+        """overlay etiketini sag/sol ust koseye sabitler."""
+        if hasattr(self, 'lbl_algo_overlay') and self.lbl_algo_overlay.isVisible():
+            # sag ust (right top)
+            canvas_width = self.canvas.width()
+            label_width = self.lbl_algo_overlay.width()
+            margin_right = 30 # scrollbar payi vs.
+            margin_top = 20
+            
+            x = canvas_width - label_width - margin_right
+            y = margin_top
+            
+            self.lbl_algo_overlay.move(x, y)
+            
+        if hasattr(self, 'lbl_info_overlay') and self.lbl_info_overlay.isVisible():
+            # sol ust (left top)
+            # direkt 10,10 konumuna (canvas'a relative olarak)
+            self.lbl_info_overlay.move(10, 10)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.update_overlay_pos()
+
+
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QFormLayout, 
+                             QLabel, QLineEdit, QGroupBox, QPushButton, QMessageBox)
+from PyQt5.QtCore import Qt
+
+class PropertiesPanel(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.layout = QVBoxLayout(self)
+        self.current_item = None # su an secili nodeitem veya edgeitem
+        
+        # 1. secim bilgisi grubu
+        self.group_box = QGroupBox("Seçili Öğe Özellikleri (Selected Item)")
+        self.form_layout = QFormLayout()
+        self.group_box.setLayout(self.form_layout)
+        
+        self.layout.addWidget(self.group_box)
+        
+        # 2. alanlar
+        self.id_label = QLabel("-")
+        self.x_input = QLineEdit()
+        self.y_input = QLineEdit()
+        
+        # yeni alanlar (ozellikler)
+        self.input_aktiflik = QLineEdit()
+        self.input_etkilesim = QLineEdit()
+        self.input_baglanti = QLineEdit()
+        
+        # validator eklenebilir ama simdilik try-float yapacagiz
+        
+        self.form_layout.addRow("ID:", self.id_label)
+        self.form_layout.addRow("X Konumu:", self.x_input)
+        self.form_layout.addRow("Y Konumu:", self.y_input)
+        
+        # ayirici
+        self.form_layout.addRow(QLabel("--- Düğüm Bilgileri ---"))
+        self.form_layout.addRow("Aktiflik Puanı:", self.input_aktiflik)
+        self.form_layout.addRow("Etkileşim Puanı:", self.input_etkilesim)
+        self.form_layout.addRow("Bağlantı Sayısı:", self.input_baglanti)
+        
+        # x,y readonly kalsin (canvas'tan tasinarak degisiyor)
+        self.x_input.setReadOnly(True)
+        self.y_input.setReadOnly(True)
+        
+        # 3. guncelle butonu
+        self.btn_update = QPushButton("Bilgileri Güncelle (Update)")
+        # stil stylesheet'ten gelecek ama ozellestirme kalabilir
+        self.btn_update.setStyleSheet("background-color: #3498db; color: white; font-weight: bold;")
+        self.btn_update.clicked.connect(self.apply_changes)
+        self.layout.addWidget(self.btn_update)
+        
+        self.layout.addStretch()
+
+    def update_selection(self, item):
+        self.current_item = item
+        
+        if item is None:
+            self.id_label.setText("-")
+            self.x_input.setText("")
+            self.y_input.setText("")
+            self.input_aktiflik.setText("")
+            self.input_etkilesim.setText("")
+            self.input_baglanti.setText("")
+            self.btn_update.setEnabled(False)
+            return
+
+        self.btn_update.setEnabled(True)
+
+        # eger nodeitem ise
+        if hasattr(item, 'node_id'):
+            self.id_label.setText(str(item.node_id))
+            self.x_input.setText(f"{item.scenePos().x():.2f}")
+            self.y_input.setText(f"{item.scenePos().y():.2f}")
+            
+            # ozellikleri cek
+            props = item.properties if hasattr(item, 'properties') else {}
+            self.input_aktiflik.setText(str(props.get('aktiflik', 0.0)))
+            self.input_etkilesim.setText(str(props.get('etkilesim', 0.0)))
+            self.input_baglanti.setText(str(props.get('baglanti_sayisi', 0.0)))
+            
+        else:
+            # edgeitem veya baska bir sey
+            self.id_label.setText("Edge (Read Only)")
+            self.x_input.setText("")
+            self.y_input.setText("")
+            self.input_aktiflik.setText("")
+            self.btn_update.setEnabled(False)
+
+    def apply_changes(self):
+        """
+        kullanicinin girdigi yeni degerleri secili ogeye uygular.
+        """
+        if not self.current_item or not hasattr(self.current_item, 'properties'):
+            return
+
+        try:
+            # degerleri al
+            new_aktiflik = float(self.input_aktiflik.text())
+            new_etkilesim = float(self.input_etkilesim.text())
+            new_baglanti = float(self.input_baglanti.text())
+            
+            # nodeitem properties guncelle
+            self.current_item.properties['aktiflik'] = new_aktiflik
+            self.current_item.properties['etkilesim'] = new_etkilesim
+            self.current_item.properties['baglanti_sayisi'] = new_baglanti
+            
+            print(f"updated node {self.current_item.node_id}: {self.current_item.properties}")
+            
+            # --- kritik adim: kenar agirliklarini guncelle ---
+            # nodeitem degistikce ona bagli kenarlarin agirligi yeniden hesaplanmali
+            if hasattr(self.current_item, 'update_connected_edges'):
+                self.current_item.update_connected_edges()
+                
+            QMessageBox.information(self, "Başarılı (Success)", "Düğüm özellikleri güncellendi!\n(Node properties updated)")
+            
+        except ValueError:
+            QMessageBox.warning(self, "Hata (Error)", "Lütfen geçerli sayısal değerler giriniz.\n(Invalid numeric values)")
+
+
+
+"""
+modern ui stylesheet for social network analysis app
+theme: professional, minimalist, clean
+colors:
+- background: #f5f6fa (light grey)
+- surface: #ffffff (white)
+- primary: #3498db (blue)
+- primary hover: #2980b9
+- text: #2c3e50 (dark blue/grey)
+- border: #dcdde1
+"""
+
+
+def get_stylesheet(scale_factor=1.0):
+    """
+    olcek factorune gore stylesheet olusturur.
+    scale_factor: 1.0 = %100, 1.5 = %150 vb.
+    """
+    # baz font boyutlari (kullanici dahi buyuk istedigi icin 14 -> 18 yaptik)
+    font_size_base = int(18 * scale_factor)
+    font_size_title = int(20 * scale_factor)
+    
+    # padding ve margin'leri de olcekle
+    padding_base = int(8 * scale_factor)
+    padding_small = int(4 * scale_factor)
+    border_radius = int(4 * scale_factor)
+
+    return f"""
+/* genel uygulama ayarlari */
+QWidget {{
+    font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
+    font-size: {font_size_base}px;
+    color: #2c3e50;
+    selection-background-color: #3498db;
+    selection-color: white;
+}}
+
+/* ana pencere */
+QMainWindow {{
+    background-color: #f5f6fa;
+}}
+
+QDockWidget::title {{
+    text-align: left;
+    background-color: #ecf0f1;
+    padding: {padding_base}px;
+    border-radius: {border_radius}px;
+    font-weight: bold;
+    font-size: {font_size_title}px;
+}}
+
+/* tab widget */
+QTabWidget::pane {{
+    border: 1px solid #dcdde1;
+    background: white;
+    border-radius: {border_radius}px;
+    top: -1px; 
+}}
+
+QTabBar::tab {{
+    background: #ecf0f1;
+    border: 1px solid #dcdde1;
+    padding: {padding_base}px {2*padding_base}px;
+    margin-right: 2px;
+    border-top-left-radius: {border_radius}px;
+    border-top-right-radius: {border_radius}px;
+    color: #7f8c8d;
+}}
+
+QTabBar::tab:selected {{
+    background: white;
+    border-bottom-color: white; 
+    color: #2c3e50;
+    font-weight: bold;
+}}
+
+/* butonlar */
+QPushButton {{
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: {padding_base}px {2*padding_base}px;
+    border-radius: {border_radius}px;
+    font-weight: bold;
+}}
+
+QPushButton:hover {{
+    background-color: #2980b9;
+}}
+
+/* input alanlari */
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {{
+    padding: {padding_base-2}px;
+    border: 1px solid #dcdde1;
+    border-radius: {border_radius}px;
+    background-color: white;
+    min-height: {int(20 * scale_factor)}px;
+}}
+
+/* tablolar */
+QTableWidget {{
+    background-color: white;
+    alternate-background-color: #f9f9f9;
+    gridline-color: #ecf0f1;
+    border: 1px solid #dcdde1;
+}}
+
+QHeaderView::section {{
+    background-color: #ecf0f1;
+    padding: {padding_base}px;
+    border: none;
+    border-right: 1px solid #dcdde1;
+    border-bottom: 1px solid #dcdde1;
+    font-weight: bold;
+    color: #2c3e50;
+}}
+"""
+
+
+from PyQt5.QtWidgets import QGraphicsItem, QGraphicsEllipseItem, QGraphicsLineItem, QGraphicsPathItem, QStyle
+from PyQt5.QtCore import Qt, QRectF, QLineF, QPointF
+from PyQt5.QtGui import QPen, QBrush, QColor, QPainter, QPolygonF, QPainterPath, QPainterPathStroker
+import math
+
+class NodeItem(QGraphicsEllipseItem):
+    def __init__(self, node_id, x, y, radius=20, label="", properties=None):
+        super().__init__(-radius, -radius, 2 * radius, 2 * radius)
+        self.node_id = node_id
+        self.label = label
+        self.radius = radius
+        self.properties = properties if properties else {}
+        
+        # Görsel ayarlar
+        self.setPos(x, y)
+        self.setBrush(QBrush(QColor("#3498db")))  # Modern mavi
+        self.setPen(QPen(Qt.black, 1))
+        
+        # Etkileşim ayarları
+        self.setFlag(QGraphicsItem.ItemIsMovable)
+        self.setFlag(QGraphicsItem.ItemIsSelectable)
+        self.setFlag(QGraphicsItem.ItemSendsGeometryChanges)
+        
+        self.edges = []  # Bağlı olduğu kenarlar
+
+    def set_label(self, label):
+        self.prepareGeometryChange() # Geometri değişiyor (boundingRect), Qt'ye haber ver
+        self.label = label
+        self.update()
+
+    def boundingRect(self):
+        # Normal daire alanı
+        rect = super().boundingRect()
+        # Eğer label varsa, alt kısma label yüksekliği kadar alan ekle
+        if self.label:
+            rect.setBottom(rect.bottom() + 25) # Label için pay bırak
+            # Genişliği de biraz artır ki uzun isimler kesilmesin
+            rect.setLeft(rect.left() - 20)
+            rect.setRight(rect.right() + 20)
+        return rect
+        
+    def paint(self, painter, option, widget):
+        # Varsayılan çizim (Daire)
+        super().paint(painter, option, widget)
+        
+        # Yazı Çizimi
+        painter.setPen(Qt.white)
+        font = painter.font()
+        font.setBold(True)
+        painter.setFont(font)
+        
+        # ID'yi merkeze yaz
+        painter.drawText(self.rect(), Qt.AlignCenter, str(self.node_id))
+        
+        # Label varsa altına yaz (Dairenin dışında)
+        if self.label:
+            painter.setPen(Qt.black)
+            # Metni dairenin (self.rect()) altına hizala, bounding box'a göre değil
+            rect = QRectF(self.rect()) 
+            rect.setTop(rect.bottom()) # Dairenin altı
+            rect.setHeight(25) # Yükseklik ver
+            
+            # Genişliği artırarak ortala
+            rect.setLeft(rect.left() - 20)
+            rect.setRight(rect.right() + 20)
+            
+            painter.drawText(rect, Qt.AlignCenter, self.label)
+
+    def itemChange(self, change, value):
+        if change == QGraphicsItem.ItemPositionHasChanged:
+            for edge in self.edges:
+                edge.adjust()
+        return super().itemChange(change, value)
+
+    def add_edge(self, edge):
+        self.edges.append(edge)
+        # Bağlantı eklendiğinde sayıyı artır
+        current_count = float(self.properties.get('baglanti_sayisi', 0))
+        self.properties['baglanti_sayisi'] = current_count + 1
+        
+        # Diğer kenarların ağırlıklarını güncelle
+        self.update_connected_edges()
+
+    def remove_edge(self, edge):
+        if edge in self.edges:
+            self.edges.remove(edge)
+            # Bağlantı silindiğinde sayıyı azalt
+            current_count = float(self.properties.get('baglanti_sayisi', 0))
+            if current_count > 0:
+                self.properties['baglanti_sayisi'] = current_count - 1
+            
+            # Bu düğüme bağlı DİĞER kenarların ağırlıklarını güncelle
+            # Çünkü bu düğümün 'baglanti_sayisi' değişti, dolayısıyla diğer kenarların maliyeti de değişmeli!
+            self.update_connected_edges()
+
+    def update_connected_edges(self):
+        """Bu düğüme bağlı tüm kenarların ağırlığını yeniden hesaplar."""
+        for edge in self.edges:
+            edge.recalculate_weight()
+
+class EdgeItem(QGraphicsPathItem): # LineItem yerine PathItem kullanıyoruz
+    def __init__(self, source_node, target_node, weight=1.0):
+        super().__init__()
+        self.source = source_node
+        self.target = target_node
+        self.weight = weight
+        self.arrow_size = 10
+        
+        # Kalem ayarları
+        pen = QPen(QColor("#2c3e50"), 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        self.setPen(pen)
+        self.setZValue(-1)
+        
+        # Seçilebilir yap (Silmek için gerekli)
+        self.setFlag(QGraphicsItem.ItemIsSelectable)
+        
+        self.source.add_edge(self)
+        self.target.add_edge(self)
+        
+        self.adjust()
+
+    def recalculate_weight(self):
+        """Node özelliklerine göre ağırlığı günceller (Model'den formülü çeker)."""
+        from src.model.edge import Edge # Circular import kaçınmak için burada
+        
+        if self.source and self.target:
+            p_source = self.source.properties
+            p_target = self.target.properties
+            
+            # Model sınıfındaki statik metodu kullan
+            new_weight, _ = Edge.calculate_weight(p_source, p_target)
+            
+            self.weight = new_weight
+            self.update() # Görsel güncelle (draw_weight çalışacak)
+
+    def adjust(self):
+        if not self.source or not self.target:
+            return
+            
+        self.prepareGeometryChange()
+        
+        start_pos = self.source.scenePos()
+        end_pos = self.target.scenePos()
+        line = QLineF(start_pos, end_pos)
+        length = line.length()
+        
+        # Ters yönde bir kenar var mı kontrol et
+        has_reverse_edge = False
+        for edge in self.target.edges:
+            if edge.source == self.target and edge.target == self.source:
+                has_reverse_edge = True
+                break
+        
+        # Yol Oluşturma
+        path = QPainterPath()
+        
+        # Başlangıç ve bitiş noktalarını düğüm yarıçapına göre ayarla
+        angle = math.atan2(line.dy(), line.dx())
+        offset_source = self.source.radius
+        offset_target = self.target.radius
+        
+        # Düzeltilmiş başlangıç/bitiş
+        p1 = start_pos + QPointF(math.cos(angle) * offset_source, math.sin(angle) * offset_source)
+        p2 = end_pos - QPointF(math.cos(angle) * offset_target, math.sin(angle) * offset_target)
+
+        if has_reverse_edge and length > 0:
+            # Eğri çiz (Quadratic Curve)
+            # Orta noktayı biraz yukarı/yana kaydır
+            
+            # Normal vektör (Çizgiye dik)
+            dx = line.dx()
+            dy = line.dy()
+            
+            # Eğrilik miktarı (Mesafeye göre artabilir veya sabit olabilir)
+            offset = 40 
+            
+            # Orta noktayı bul
+            mid_point = (p1 + p2) / 2
+            
+            # Normal vektörü normalize et ve offset kadar ötele
+            # (-dy, dx) 90 derece döndürür
+            norm_len = math.sqrt(dx*dx + dy*dy)
+            ctrl_point = mid_point + QPointF(-dy * offset / norm_len, dx * offset / norm_len)
+            
+            path.moveTo(p1)
+            path.quadTo(ctrl_point, p2)
+        else:
+            # Düz çizgi
+            path.moveTo(p1)
+            path.lineTo(p2)
+            
+        self.setPath(path)
+
+    def boundingRect(self):
+        # Path'in sınırlarını döndür ama biraz genişlet
+        rect = self.path().boundingRect()
+        extra = (self.pen().width() + self.arrow_size + 20)
+        return rect.adjusted(-extra, -extra, extra, extra)
+
+    def shape(self):
+        """Tıklamayı kolaylaştırmak için daha kalın bir yol döndür."""
+        path = QPainterPathStroker()
+        path.setWidth(10) # Tıklama alanı genişliği
+        return path.createStroke(self.path())
+
+    def paint(self, painter, option, widget):
+        if not self.source or not self.target:
+            return
+        
+        # Seçili ise farklı çiz
+        # option.state & QStyle.State_Selected kontrolü için QStyle import edilmeli
+        # veya int değeri 0x00000001 (State_Selected)
+        
+        # Daha temiz olması için QStyle.State_Selected kullanmayı tercih ederim ama import eklemem lazım.
+        # Pratik çözüm: Qt.WA_... değil ama Style option flagleri.
+
+        if option.state & QStyle.State_Selected:
+            # Seçili: Kalın ve kırmızı
+            pen = QPen(QColor("#e74c3c"), 3, Qt.DashLine, Qt.RoundCap, Qt.RoundJoin)
+            painter.setPen(pen)
+            painter.drawPath(self.path())
+        else:
+            # Normal
+            painter.setPen(self.pen())
+            painter.drawPath(self.path())
+        
+        if self.weight != 1.0:
+             self.draw_weight(painter)
+
+    def draw_weight(self, painter):
+        path = self.path()
+        if path.isEmpty(): return
+        
+        # Yolun tam ortasına yaz (%50)
+        center_point = path.pointAtPercent(0.5)
+        text = str(self.weight)
+        
+        # Font Ayarları (Daha Okunaklı)
+        font = painter.font()
+        font.setPointSize(10)
+        font.setBold(True)
+        painter.setFont(font)
+        
+        # Metin Boyutunu Hesapla
+        fm = painter.fontMetrics()
+        text_width = fm.width(text)
+        text_height = fm.height()
+        
+        # Arkaplan Kutusunu Metne Göre Ayarla (+Padding)
+        padding = 10
+        rect_width = text_width + padding
+        rect_height = text_height + 4
+        
+        # Kutuyu ortala
+        rect = QRectF(center_point.x() - rect_width / 2, 
+                      center_point.y() - rect_height / 2, 
+                      rect_width, rect_height)
+        
+        # Arkaplan kutusu (Beyaz, görünür çerçeve)
+        painter.setBrush(QBrush(QColor(255, 255, 255, 255))) # Tam opak beyaz
+        painter.setPen(QPen(Qt.black, 1)) # İnce siyah çerçeve
+        painter.drawRoundedRect(rect, 5, 5) # Yuvarlatılmış köşeler
+        
+        # Metni Çiz
+        painter.setPen(Qt.black)
+        painter.drawText(rect, Qt.AlignCenter, text)
